@@ -1,0 +1,9 @@
+{
+  "name": "rehab-johan",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/model.test.js",
+    "start": "node dev-server.mjs"
+  }
+}
