@@ -1,0 +1,87 @@
+{
+  "engine": "Built-in image_gen",
+  "method": "Identity-only edits of the app's text-generated, text-free illustrations: adult male character; preserve exercise poses, contacts, props and composition.",
+  "parentSeries": "output/imagegen/text-free-manifest.json",
+  "assets": [
+    {
+      "index": 0,
+      "title": "Tåhävningar",
+      "file": "dist/assets/illustrations/text-free/man/exercise-0.png",
+      "generatedSource": "/Users/johan/.codex/generated_images/01a1a69d-cdbb-7d43-a6fc-44005bbcd873/exec-ecab6f5a-2bb9-48f0-bff5-a0dcc4f0a6a8.png",
+      "prompt": "Precise identity-only edit of the supplied exercise illustration. Keep the original exercise pose, camera angle, composition, all joint/limb angles, hands' grip positions, feet and heel contacts, props and their perspective, sizes and locations, plain cream background, thin navy outlines and sage/navy/pale-blue color palette EXACTLY as in the supplied image. Replace the illustrated person with the SAME adult Swedish MAN across this series: an everyday man around 40-50, fair/light skin, short straight dark-blond hair with a modest natural hairline, subtle light stubble, ordinary healthy build rather than exaggerated bodybuilder muscles, natural masculine face and torso, no breasts. Dress him in a plain muted-sage short-sleeve T-SHIRT and navy exercise shorts, retaining current trainers or bare feet as shown. Preserve all necessary leg exposure for contact points. Make hands and feet anatomically normal and proportional; only adjust the person's appearance, never the biomechanics. No stereotyped accessories, flags, symbols or national costume. The goal is a personal Swedish man's rehab app. Keep image fully TEXT FREE: no titles, captions, letters, numbers, logos, signatures, copyright symbols, watermarks or new arrows. Landscape 3:2, 1536x1024, opaque cream background. Only lower legs/feet are visible in this close-up with smaller rear-view inset: DO NOT add a face, head, body or extra view. Apply male light skin and modest male calf shape consistently to both views. Keep both forefeet supported at platform edge, both heels hanging freely, and the OCHRE YELLOW ball between inner ankle bones in BOTH views. Preserve shoe colors, shoe/step angle and ball placement exactly.",
+      "referenceImages": [
+        "/Users/johan/Documents/Projekt/rehab/dist/assets/illustrations/text-free/exercise-0.png"
+      ]
+    },
+    {
+      "index": 1,
+      "title": "Vadstretch med rakt ben",
+      "file": "dist/assets/illustrations/text-free/man/exercise-1.png",
+      "generatedSource": "/Users/johan/.codex/generated_images/01a1a69d-cdbb-7d43-a6fc-44005bbcd873/exec-01ae9ae6-cd48-400a-b39a-0ed5dddb224f.png",
+      "prompt": "Precise identity-only edit of the supplied exercise illustration. Keep the original exercise pose, camera angle, composition, all joint/limb angles, hands' grip positions, feet and heel contacts, props and their perspective, sizes and locations, plain cream background, thin navy outlines and sage/navy/pale-blue color palette EXACTLY as in the supplied image. Replace the illustrated person with the SAME adult Swedish MAN across this series: an everyday man around 40-50, fair/light skin, short straight dark-blond hair with a modest natural hairline, subtle light stubble, ordinary healthy build rather than exaggerated bodybuilder muscles, natural masculine face and torso, no breasts. Dress him in a plain muted-sage short-sleeve T-SHIRT and navy exercise shorts, retaining current trainers or bare feet as shown. Preserve all necessary leg exposure for contact points. Make hands and feet anatomically normal and proportional; only adjust the person's appearance, never the biomechanics. No stereotyped accessories, flags, symbols or national costume. The goal is a personal Swedish man's rehab app. Keep image fully TEXT FREE: no titles, captions, letters, numbers, logos, signatures, copyright symbols, watermarks or new arrows. Landscape 3:2, 1536x1024, opaque cream background. Keep the rear knee straight and rear heel on floor, front knee bent, both hands supported on chair back. Keep chair, both foot positions and facing direction unchanged.",
+      "referenceImages": [
+        "/Users/johan/Documents/Projekt/rehab/dist/assets/illustrations/text-free/exercise-1.png"
+      ]
+    },
+    {
+      "index": 2,
+      "title": "Vadstretch på trappsteg",
+      "file": "dist/assets/illustrations/text-free/man/exercise-2.png",
+      "generatedSource": "/Users/johan/.codex/generated_images/01a1a69d-cdbb-7d43-a6fc-44005bbcd873/exec-54a0d8b0-2924-4d39-a5c2-7dacd051de91.png",
+      "prompt": "Precise identity-only edit of the supplied exercise illustration. Keep the original exercise pose, camera angle, composition, all joint/limb angles, hands' grip positions, feet and heel contacts, props and their perspective, sizes and locations, plain cream background, thin navy outlines and sage/navy/pale-blue color palette EXACTLY as in the supplied image. Replace the illustrated person with the SAME adult Swedish MAN across this series: an everyday man around 40-50, fair/light skin, short straight dark-blond hair with a modest natural hairline, subtle light stubble, ordinary healthy build rather than exaggerated bodybuilder muscles, natural masculine face and torso, no breasts. Dress him in a plain muted-sage short-sleeve T-SHIRT and navy exercise shorts, retaining current trainers or bare feet as shown. Preserve all necessary leg exposure for contact points. Make hands and feet anatomically normal and proportional; only adjust the person's appearance, never the biomechanics. No stereotyped accessories, flags, symbols or national costume. The goal is a personal Swedish man's rehab app. Keep image fully TEXT FREE: no titles, captions, letters, numbers, logos, signatures, copyright symbols, watermarks or new arrows. Landscape 3:2, 1536x1024, opaque cream background. Keep both bare forefeet supported on the low step and both heels lowered beyond edge, straight knees, hands braced on wall. Do not turn it into a calf raise or add a ball.",
+      "referenceImages": [
+        "/Users/johan/Documents/Projekt/rehab/dist/assets/illustrations/text-free/exercise-2.png"
+      ]
+    },
+    {
+      "index": 3,
+      "title": "Sittande stretch för plantarfascian",
+      "file": "dist/assets/illustrations/text-free/man/exercise-3.png",
+      "generatedSource": "/Users/johan/.codex/generated_images/01a1a69d-cdbb-7d43-a6fc-44005bbcd873/exec-f08708f9-9f23-4a48-be18-0e17ff1ae6c4.png",
+      "prompt": "Precise identity-only edit of the supplied exercise illustration. Keep the original exercise pose, camera angle, composition, all joint/limb angles, hands' grip positions, feet and heel contacts, props and their perspective, sizes and locations, plain cream background, thin navy outlines and sage/navy/pale-blue color palette EXACTLY as in the supplied image. Replace the illustrated person with the SAME adult Swedish MAN across this series: an everyday man around 40-50, fair/light skin, short straight dark-blond hair with a modest natural hairline, subtle light stubble, ordinary healthy build rather than exaggerated bodybuilder muscles, natural masculine face and torso, no breasts. Dress him in a plain muted-sage short-sleeve T-SHIRT and navy exercise shorts, retaining current trainers or bare feet as shown. Preserve all necessary leg exposure for contact points. Make hands and feet anatomically normal and proportional; only adjust the person's appearance, never the biomechanics. No stereotyped accessories, flags, symbols or national costume. The goal is a personal Swedish man's rehab app. Keep image fully TEXT FREE: no titles, captions, letters, numbers, logos, signatures, copyright symbols, watermarks or new arrows. Landscape 3:2, 1536x1024, opaque cream background. Keep seated figure-four position, upper ankle resting on opposite thigh near knee, one hand supporting heel and the other gently bending toes toward shin. Do not change heel support, toe grip, foot size, shin continuity or chair angle. One supporting bare foot stays on floor.",
+      "referenceImages": [
+        "/Users/johan/Documents/Projekt/rehab/dist/assets/illustrations/text-free/exercise-3.png"
+      ]
+    },
+    {
+      "index": 4,
+      "title": "Stretch mot vägg",
+      "file": "dist/assets/illustrations/text-free/man/exercise-4.png",
+      "generatedSource": "/Users/johan/.codex/generated_images/01a1a69d-cdbb-7d43-a6fc-44005bbcd873/exec-f3162e8e-f9fb-4ea7-aac4-b062e0ba1e20.png",
+      "prompt": "Precise identity-only edit of the supplied exercise illustration. Keep the original exercise pose, camera angle, composition, all joint/limb angles, hands' grip positions, feet and heel contacts, props and their perspective, sizes and locations, plain cream background, thin navy outlines and sage/navy/pale-blue color palette EXACTLY as in the supplied image. Replace the illustrated person with the SAME adult Swedish MAN across this series: an everyday man around 40-50, fair/light skin, short straight dark-blond hair with a modest natural hairline, subtle light stubble, ordinary healthy build rather than exaggerated bodybuilder muscles, natural masculine face and torso, no breasts. Dress him in a plain muted-sage short-sleeve T-SHIRT and navy exercise shorts, retaining current trainers or bare feet as shown. Preserve all necessary leg exposure for contact points. Make hands and feet anatomically normal and proportional; only adjust the person's appearance, never the biomechanics. No stereotyped accessories, flags, symbols or national costume. The goal is a personal Swedish man's rehab app. Keep image fully TEXT FREE: no titles, captions, letters, numbers, logos, signatures, copyright symbols, watermarks or new arrows. Landscape 3:2, 1536x1024, opaque cream background. Keep bare front heel ON FLOOR and forefoot/toes UP against wall, rear foot fully grounded, hands on wall. Leave wall-floor junction and all existing contact shadows unchanged.",
+      "referenceImages": [
+        "/Users/johan/Documents/Projekt/rehab/dist/assets/illustrations/text-free/exercise-4.png"
+      ]
+    },
+    {
+      "index": 5,
+      "title": "Fotledsrörlighet på stol",
+      "file": "dist/assets/illustrations/text-free/man/exercise-5.png",
+      "generatedSource": "/Users/johan/.codex/generated_images/01a1a69d-cdbb-7d43-a6fc-44005bbcd873/exec-5521bf25-bfdd-460e-8497-f9e94312dc32.png",
+      "prompt": "Precise identity-only edit of the supplied exercise illustration. Keep the original exercise pose, camera angle, composition, all joint/limb angles, hands' grip positions, feet and heel contacts, props and their perspective, sizes and locations, plain cream background, thin navy outlines and sage/navy/pale-blue color palette EXACTLY as in the supplied image. Replace the illustrated person with the SAME adult Swedish MAN across this series: an everyday man around 40-50, fair/light skin, short straight dark-blond hair with a modest natural hairline, subtle light stubble, ordinary healthy build rather than exaggerated bodybuilder muscles, natural masculine face and torso, no breasts. Dress him in a plain muted-sage short-sleeve T-SHIRT and navy exercise shorts, retaining current trainers or bare feet as shown. Preserve all necessary leg exposure for contact points. Make hands and feet anatomically normal and proportional; only adjust the person's appearance, never the biomechanics. No stereotyped accessories, flags, symbols or national costume. The goal is a personal Swedish man's rehab app. Keep image fully TEXT FREE: no titles, captions, letters, numbers, logos, signatures, copyright symbols, watermarks or new arrows. Landscape 3:2, 1536x1024, opaque cream background. Keep elevated ENTIRE bare foot flat on chair seat including heel, knee forward toward chair back, supporting foot on floor and both hands holding backrest. Do not let knee or shin intersect the chair, do not lift heel.",
+      "referenceImages": [
+        "/Users/johan/Documents/Projekt/rehab/dist/assets/illustrations/text-free/exercise-5.png"
+      ]
+    },
+    {
+      "index": 6,
+      "title": "Stretch för lår och vrister",
+      "file": "dist/assets/illustrations/text-free/man/exercise-6.png",
+      "generatedSource": "/Users/johan/.codex/generated_images/01a1a69d-cdbb-7d43-a6fc-44005bbcd873/exec-980e9efd-721d-40db-be77-732925246ee9.png",
+      "prompt": "Precise identity-only edit of the supplied exercise illustration. Keep the original exercise pose, camera angle, composition, all joint/limb angles, hands' grip positions, feet and heel contacts, props and their perspective, sizes and locations, plain cream background, thin navy outlines and sage/navy/pale-blue color palette EXACTLY as in the supplied image. Replace the illustrated person with the SAME adult Swedish MAN across this series: an everyday man around 40-50, fair/light skin, short straight dark-blond hair with a modest natural hairline, subtle light stubble, ordinary healthy build rather than exaggerated bodybuilder muscles, natural masculine face and torso, no breasts. Dress him in a plain muted-sage short-sleeve T-SHIRT and navy exercise shorts, retaining current trainers or bare feet as shown. Preserve all necessary leg exposure for contact points. Make hands and feet anatomically normal and proportional; only adjust the person's appearance, never the biomechanics. No stereotyped accessories, flags, symbols or national costume. The goal is a personal Swedish man's rehab app. Keep image fully TEXT FREE: no titles, captions, letters, numbers, logos, signatures, copyright symbols, watermarks or new arrows. Landscape 3:2, 1536x1024, opaque cream background. Keep kneeling sitting ON HEELS with tops of feet down and toes pointing backward on mat, hands on thighs. Preserve ankle position, folded legs and body facing direction; no tucked toes.",
+      "referenceImages": [
+        "/Users/johan/Documents/Projekt/rehab/dist/assets/illustrations/text-free/exercise-6.png"
+      ]
+    },
+    {
+      "index": 7,
+      "title": "Knäböj",
+      "file": "dist/assets/illustrations/text-free/man/exercise-7.png",
+      "generatedSource": "/Users/johan/.codex/generated_images/01a1a69d-cdbb-7d43-a6fc-44005bbcd873/exec-9f1fcde7-0cde-44bf-a89f-cf9690667688.png",
+      "prompt": "Precise identity-only edit of the supplied exercise illustration. Keep the original exercise pose, camera angle, composition, all joint/limb angles, hands' grip positions, feet and heel contacts, props and their perspective, sizes and locations, plain cream background, thin navy outlines and sage/navy/pale-blue color palette EXACTLY as in the supplied image. Replace the illustrated person with the SAME adult Swedish MAN across this series: an everyday man around 40-50, fair/light skin, short straight dark-blond hair with a modest natural hairline, subtle light stubble, ordinary healthy build rather than exaggerated bodybuilder muscles, natural masculine face and torso, no breasts. Dress him in a plain muted-sage short-sleeve T-SHIRT and navy exercise shorts, retaining current trainers or bare feet as shown. Preserve all necessary leg exposure for contact points. Make hands and feet anatomically normal and proportional; only adjust the person's appearance, never the biomechanics. No stereotyped accessories, flags, symbols or national costume. The goal is a personal Swedish man's rehab app. Keep image fully TEXT FREE: no titles, captions, letters, numbers, logos, signatures, copyright symbols, watermarks or new arrows. Landscape 3:2, 1536x1024, opaque cream background. Keep deep bodyweight squat, both feet and heels grounded, arms CROSSED with each hand on opposite shoulder. Preserve squat depth, torso inclination, stance and elbow positions.",
+      "referenceImages": [
+        "/Users/johan/Documents/Projekt/rehab/dist/assets/illustrations/text-free/exercise-7.png"
+      ]
+    }
+  ]
+}
