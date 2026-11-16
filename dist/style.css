@@ -44,3 +44,49 @@ dialog .dialog-image{height:auto;max-height:65vh;object-fit:contain;background:#
 .sound-actions button{flex:1;min-height:46px;padding:10px 14px}
 .sound-actions #sound[aria-pressed=true]{background:#48766d18;border-color:var(--green);color:var(--dark)}
 .sound-panel .note{margin:8px 0 0}
+
+/* Keep the daily action and the exercise essentials within easy reach. */
+.shell:has(.home-view) header{margin-bottom:22px}
+.home-view h1{font-size:clamp(28px,6vw,36px);margin-bottom:16px}
+.home-view .hero{margin-top:0;padding:20px}
+.pass-summary{font-size:14px;color:var(--muted);margin:14px 0}
+.home-preparation{border-bottom:0;padding:8px 0 0;margin-top:8px}
+.home-preparation summary{font-size:14px}
+.home-preparation .note{margin:12px 0 0}
+.resume-card>p{margin:10px 0;font-size:14px}
+.week-card{padding:18px 20px}
+.week-card h2{font-size:18px;margin:0}
+.week-card .week{margin-top:12px}
+.shell:has(.session-view){padding-top:max(12px,env(safe-area-inset-top))}
+.shell:has(.session-view) header{margin-bottom:14px}
+.shell:has(.session-view) .brand{font-size:23px}
+.shell:has(.session-view) .brand img{width:38px;height:38px;border-radius:12px}
+.shell:has(.session-view) .brand small{font-size:8px;margin-top:3px}
+.session-view h1{font-size:clamp(23px,5vw,32px);margin-bottom:10px}
+.session-view .eyebrow{margin-bottom:4px}
+.session-view .progressbar{margin:12px 0}
+.session-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center;margin:12px 0}
+.session-workspace .image-preview{width:100%;min-height:0;padding:0 0 8px;gap:4px;font-size:11px}
+.session-workspace .exercise-image{width:100%;height:clamp(130px,25svh,230px);aspect-ratio:auto;object-fit:contain}
+.session-workspace .timer{padding:0;min-width:0}
+.session-workspace .phase{font-size:clamp(17px,4vw,24px);line-height:1.25;min-height:1.25em}
+.session-workspace .ring{width:clamp(114px,35vw,172px);height:clamp(114px,35vw,172px);margin:8px auto;padding:5px}
+.session-workspace .ring strong{font-size:clamp(44px,12vw,64px)}
+.session-workspace .ring span{font-size:12px}
+.session-workspace #count{font-size:13px;margin:0;line-height:1.3}
+.session-primary{bottom:max(8px,env(safe-area-inset-bottom));padding:4px}
+.session-primary .primary{min-height:52px}
+.session-meta{padding-top:10px}
+.session-meta p{font-size:12px;margin-bottom:3px}
+.session-view .exercise-guide{margin-top:8px;padding-top:0;border-top:0}
+.session-view .session-instructions{margin-top:0;padding:0}
+.session-options{padding:0}
+.session-options summary,.session-instructions summary{font-size:14px}
+.session-options .actions{margin-bottom:12px}
+@media(max-height:600px){
+  .shell:has(.session-view) header{margin-bottom:8px}
+  .session-workspace{margin:8px 0}
+  .session-workspace .exercise-image{height:130px}
+  .session-workspace .ring{width:112px;height:112px}
+  .session-workspace .ring strong{font-size:44px}
+}
