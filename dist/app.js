@@ -1,6 +1,7 @@
 import {defaults,exercises,dayKey,validSettings,signature,plan,proposal,eligible,fresh} from './model.js';
 import {parseBackup,mergeHistory,restoreDraft,estimatedSeconds,formatDuration} from './storage.js';
 import {SoundPlayer} from './sound.js';
+import {poseAssets,exercisePose} from './poses.js';
 const $=s=>document.querySelector(s), app=$('#app'),KEY='rehab-johan-v1';let state=fresh(),session=null,timer=null,deadline=0,remaining=0,running=false,lock=null,current='home',cancelPrompt=false,unreadStorage=null;
 const DRAFT_KEY=KEY+'-pass';
 let completed=null,savedDraft=null,unreadDraft=null,elapsedMs=0,activeSince=null,passPaused=false,importPreview=null,importRead=0;
@@ -14,11 +15,20 @@ function showRecovery(){const box=$('#notice');if(!box.querySelector('button')){
 function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function button(id,text,cls='secondary'){return `<button id="${id}" class="${cls}">${text}</button>`}
 function illustrationPath(e){return `assets/illustrations/1950s/exercise-${e.img}.png`}
+const posePreloads=new Map();
+function preloadPoses(){
+  for(const src of poseAssets){if(posePreloads.has(src))continue;const img=new Image();img.src=src;posePreloads.set(src,img)}
+}
+function poseMarkup(e,pose){
+  return `<span class="pose-frames ${pose.frames.length>1?'pose-pair':''}" role="img" aria-label="${esc(e.name+': '+pose.label)}">${pose.frames.map(frame=>`<span class="pose-frame"><img class="pose-image" src="${pose.src}" alt="" decoding="sync" style="width:${pose.columns*100}%;transform:translateX(-${100*frame/pose.columns}%)"></span>`).join('')}</span>`;
+}
 function imageButton(e,inSession=false){
+  if(inSession){const pose=exercisePose(e,session.phase,session.nextPhase);return `<button type="button" id="enlarge-image" class="image-preview pose-preview" data-image="${e.img}" data-pose="${pose.frames.join(',')}" aria-label="Förstora illustration: ${esc(e.name+', '+pose.label)}">${poseMarkup(e,pose)}<span class="pose-caption">${pose.label}</span><span>Förstora ↗</span></button>`}
+
   return `<button type="button" class="image-preview" ${inSession?'id="enlarge-image"':''} data-image="${e.img}" aria-label="Förstora illustration: ${esc(e.name)}"><img class="exercise-image" src="${illustrationPath(e)}" alt="${esc(e.name)}" loading="lazy" decoding="async"><span>Förstora illustration ↗</span></button>`;
 }
 function imageDialog(){
-  return `<dialog id="image-dialog" aria-labelledby="image-title"><div class="row"><h2 id="image-title"></h2>${button('close-image','Stäng')}</div><img class="dialog-image" id="dialog-image" alt=""><p class="note" id="image-credit"></p>${button('show-original','Visa originalbild')}</dialog>`;
+  return `<dialog id="image-dialog" aria-labelledby="image-title"><div class="row"><h2 id="image-title"></h2>${button('close-image','Stäng')}</div><div id="dialog-pose" hidden></div><img class="dialog-image" id="dialog-image" alt=""><p class="note" id="image-credit"></p>${button('show-original','Visa originalbild')}</dialog>`;
 }
 function setDialogImage(original){
   const dialog=$('#image-dialog'),e=exercises[Number(dialog.dataset.exercise)];
@@ -26,12 +36,24 @@ function setDialogImage(original){
   const credit=e.img===0?'The Finnish Weightlifting Federation':e.img===7?'Joanne Elphinston':'Physiotools';
   dialog.dataset.original=String(original);
   $('#image-title').textContent=e.name;
+  const activePose=!original&&session&&step().ei===Number(dialog.dataset.exercise);
+  $('#dialog-pose').hidden=!activePose;$('#dialog-image').hidden=!!activePose;
+  $('#dialog-pose').innerHTML=activePose?poseMarkup(e,exercisePose(e,session.phase,session.nextPhase)):'';
+  bindPoseFallbacks();
   $('#dialog-image').src=original?`assets/exercise-${e.img}.png`:illustrationPath(e);
   $('#dialog-image').alt=(original?'Originalbild: ':'Illustration: ')+e.name;
   $('#image-credit').textContent=original?`Originalbild © ${credit}`:'AI-illustration utifrån övningsbeskrivningen.';
   $('#show-original').textContent=original?'Visa illustration':'Visa originalbild';
 }
+function bindPoseFallbacks(){
+  // A missing sheet falls back to the existing exercise overview.
+  app.querySelectorAll('.pose-image').forEach(img=>img.onerror=()=>{
+    img.onerror=null;const e=exercises[Number(img.closest('[data-image]')?.dataset.image??$('#image-dialog')?.dataset.exercise)];
+    if(e){img.src=illustrationPath(e);img.style.width='100%';img.style.transform='none';img.classList.add('pose-fallback')}
+  });
+}
 function bindImages(){
+  bindPoseFallbacks();
   const dialog=$('#image-dialog');if(!dialog)return;
   app.querySelectorAll('[data-image]').forEach(b=>b.onclick=()=>{
     const index=Number(b.dataset.image);
@@ -49,8 +71,8 @@ function dateLabel(d){return new Date(d+'T12:00:00').toLocaleDateString('sv-SE',
 function dayDone(){return state.history.some(x=>x.day===dayKey())}
 function pending(){return state.history.filter(x=>x.day<dayKey()&&!x.next)}
 function week(){let h='';for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const key=dayKey(d);h+=`<div class="day ${state.history.some(x=>x.day===key)?'done':''} ${i===0?'today':''}">${d.toLocaleDateString('sv-SE',{weekday:'short'})}<b>${state.history.some(x=>x.day===key)?'✓':d.getDate()}</b></div>`}return `<div class="week" aria-label="De senaste sju dagarna">${h}</div>`}
-function home(){const s=savedDraft?.session.settings??state.settings;return `<div class="home-view">`+heading('Ditt dagliga pass',dayDone()?'Dagens pass är klart.':'Redo för dagens pass?')+`<section class="card hero"><div class="row"><span class="pill">${savedDraft?'Påbörjat pass':dayDone()?'✓ Genomfört i dag':'Ditt nästa pass'}</span><span class="note">8 övningar</span></div><p class="pass-summary">${s.stretch} s stretch · 3 × ${s.reps} repetitioner · ${Math.ceil(estimatedSeconds(s)/60)}+ min</p>${savedDraft||unreadDraft!==null?draftCard():button('start',dayDone()?'Passet sparat i dag':'Starta mitt pass','primary')}<details class="home-preparation"><summary>Inför passet och ljud</summary>${soundControls()}<p class="note">Ta fram en boll, en stadig stol och ett trappsteg. Du startar själv varje ny övning och sida.</p><p class="note">Beräknad tid för stretch, tåhävningar och inställd vila. Knäböj och byten mellan övningar tillkommer.</p><p class="note">Övningar och intervall från ditt Physiotools-program. Antalet pass är ditt val. Öka en sak i taget och stäm av progressionen med fysioterapeuten.</p></details></section>${pending().length?`<section class="card"><p class="eyebrow">Följ upp</p><h2>Hur kändes kroppen dagen efter?</h2><p class="muted">Svara för tidigare pass innan du tar ställning till en ökning.</p>${button('follow','Följ upp senaste pass')}</section>`:''}${eligible(state)?`<section class="card"><p class="eyebrow">Du bestämmer</p><h2>Vill du ta nästa steg?</h2><p>Tre pass på olika dagar har känts bra, även dagen efter.</p><p><strong>${proposal(s).label}</strong></p><p class="note">Detta är appens förslag, inte en progressionsplan från fysioterapeuten.</p><div class="actions">${button('increase','Godkänn ökningen','primary')}${button('stay','Behåll nivån')}</div></section>`:''}<section class="card week-card"><div class="row"><h2>Din vecka</h2><a href="#progress" class="note">Visa framsteg →</a></div>${week()}</section></div>`}
-function program(){return heading('Ditt upplägg','Åtta övningar. Ett pass.','Öppna en övning för att se bild och instruktion.')+`<p class="note">Illustrationerna har tagits fram från övningsbeskrivningarna. Du kan visa originalbilden när du förstorar en illustration. Instruktionerna kommer från programmet. Varje pass innehåller alla åtta övningar. För ensidiga övningar utom vadstretch med rakt ben är båda sidor ett val i appen; PDF:en anger inte sida.</p>`+exercises.map((e,i)=>`<details><summary><span class="num">${i+1}</span>${e.name}</summary><div class="instruction program-instruction">${imageButton(e)}<div><p>${e.text}</p><p class="note">${e.dose}</p>${e.video?`<a class="button" href="${esc(e.video)}" target="_blank" rel="noopener">Visa originalvideo ↗</a>`:''}</div></div></details>`).join('')+`<section class="card"><h2>Progression i din takt</h2><p>Börja med 45 sekunder stretch och 3 × 10 repetitioner. Appen erbjuder en ökning efter tre pass på olika dagar på samma nivå, om du markerat att både passet och dagen efter kändes bra.</p><p>Först ökas stretchtiden med 5 sekunder till högst 60. Sedan ökas repetitionerna en i taget till 15, och sist sänkningen i tåhävningarna till högst 5 sekunder. Du godkänner varje ändring.</p><p class="note">Regeln är ett appupplägg som behöver stämmas av med fysioterapeuten. Missade dagar ger ingen ökning. Avbrutna pass räknas inte. Vila mellan set och sidval är appinställningar, inte en angiven ordination.</p></section>`+imageDialog()}
+function home(){const s=savedDraft?.session.settings??state.settings;return `<div class="home-view">`+heading('Ditt dagliga pass',dayDone()?'Dagens pass är klart.':'Redo för dagens pass?')+`<section class="card hero"><div class="row"><span class="pill">${savedDraft?'Påbörjat pass':dayDone()?'✓ Genomfört i dag':'Ditt nästa pass'}</span><span class="note">8 övningar</span></div><p class="pass-summary">${s.stretch} s stretch · 3 × ${s.reps} repetitioner · ${Math.ceil(estimatedSeconds(s)/60)}+ min</p>${savedDraft||unreadDraft!==null?draftCard():button('start',dayDone()?'Passet sparat i dag':'Starta mitt pass','primary')}<details class="home-preparation"><summary>Inför passet och ljud</summary>${soundControls()}<p class="note">Ta fram en boll, en stadig stol och ett trappsteg. Du startar själv varje ny övning och sida.</p><p class="note">Beräknad tid för stretch, tåhävningar, övergångspauser och inställd vila. Knäböj och byten mellan övningar tillkommer.</p><p class="note">Övningar och intervall från ditt Physiotools-program. Antalet pass är ditt val. Öka en sak i taget och stäm av progressionen med fysioterapeuten.</p></details></section>${pending().length?`<section class="card"><p class="eyebrow">Följ upp</p><h2>Hur kändes kroppen dagen efter?</h2><p class="muted">Svara för tidigare pass innan du tar ställning till en ökning.</p>${button('follow','Följ upp senaste pass')}</section>`:''}${eligible(state)?`<section class="card"><p class="eyebrow">Du bestämmer</p><h2>Vill du ta nästa steg?</h2><p>Tre pass på olika dagar har känts bra, även dagen efter.</p><p><strong>${proposal(s).label}</strong></p><p class="note">Detta är appens förslag, inte en progressionsplan från fysioterapeuten.</p><div class="actions">${button('increase','Godkänn ökningen','primary')}${button('stay','Behåll nivån')}</div></section>`:''}<section class="card week-card"><div class="row"><h2>Din vecka</h2><a href="#progress" class="note">Visa framsteg →</a></div>${week()}</section></div>`}
+function program(){return heading('Ditt upplägg','Åtta övningar. Ett pass.','Öppna en övning för att se bild och instruktion.')+`<p class="note">Illustrationerna har tagits fram från övningsbeskrivningarna. Du kan visa originalbilden när du förstorar en illustration. Instruktionerna kommer från programmet. Varje pass innehåller alla åtta övningar. För ensidiga övningar utom vadstretch med rakt ben är båda sidor ett val i appen; PDF:en anger inte sida.</p>`+exercises.map((e,i)=>`<details><summary><span class="num">${i+1}</span>${e.name}</summary><div class="instruction program-instruction">${imageButton(e)}<div><p>${e.text}</p><p class="note">${e.dose}</p>${e.side?'<p class="note">Bilden visar positionen som exempel. Följ passets sidangivelse för vilket ben du ska träna.</p>':''}${e.video?`<a class="button" href="${esc(e.video)}" target="_blank" rel="noopener">Visa originalvideo ↗</a>`:''}</div></div></details>`).join('')+`<section class="card"><h2>Progression i din takt</h2><p>Börja med 45 sekunder stretch och 3 × 10 repetitioner. Appen erbjuder en ökning efter tre pass på olika dagar på samma nivå, om du markerat att både passet och dagen efter kändes bra.</p><p>Först ökas stretchtiden med 5 sekunder till högst 60. Sedan ökas repetitionerna en i taget till 15, och sist sänkningen i tåhävningarna till högst 5 sekunder. Du godkänner varje ändring.</p><p class="note">Regeln är ett appupplägg som behöver stämmas av med fysioterapeuten. Missade dagar ger ingen ökning. Avbrutna pass räknas inte. Vila mellan set och sidval är appinställningar, inte en angiven ordination.</p></section>`+imageDialog()}
 function progress(){const weekKeys=[];for(let i=0;i<7;i++){let d=new Date();d.setDate(d.getDate()-i);weekKeys.push(dayKey(d))}return heading('Översikt','Din träning hittills.')+`<div class="card"><div class="metrics"><div><strong>${state.history.length}</strong><span>genomförda pass</span></div><div><strong>${state.history.filter(x=>weekKeys.includes(x.day)).length} / 7</strong><span>senaste veckan</span></div><div><strong>${state.settings.stretch} s</strong><span>aktuell stretch</span></div></div>${week()}</div><h2>Passhistorik</h2>${state.history.length?state.history.slice().reverse().map(x=>`<div class="history"><div><strong>${dateLabel(x.day)}</strong><small>${esc(x.settings.stretch)} s · 3 × ${esc(x.settings.reps)}</small><small>${x.durationMs===undefined?'Passtid saknas':formatDuration(x.durationMs)}</small></div><div>${x.feel==='good'?'Kändes bra':x.feel==='hard'?'Ansträngande':'Besvär'}<small>${x.next?(x.next==='good'?'Bra dagen efter':x.next==='hard'?'Trött dagen efter':'Besvär dagen efter'):'Uppföljning återstår'}</small></div></div>`).join(''):'<p class="muted">Ditt första genomförda pass visas här.</p>'}<section class="card"><h2>Säkerhetskopiera och flytta</h2><div class="actions wrap">${button('export','Exportera historik')}${button('choose-import','Importera historik')}</div><input id="import-file" type="file" accept=".json,application/json" hidden><p id="import-status" role="status" class="note"></p><div id="import-preview">${importPreview?importMarkup():''}</div></section><p class="note">Sparas enbart i den här webbläsaren. Exportera en säkerhetskopia om du vill behålla dina uppgifter.</p><p class="note">Passtiden inkluderar vila och byten mellan övningarna. Pauser och tiden utanför appen räknas inte. Äldre pass saknar uppmätt tid.</p>`}
 function settings(){const s=state.settings;return heading('Ditt upplägg','Gör det till ditt.','Justera inom intervallen från ditt program.')+`<form id="settings-form" class="card">${[['stretch','Stretchtid (sekunder)',45,60],['reps','Repetitioner per set · 3 set',10,15],['lower','Sänkning i tåhävning (sekunder)',3,5],['rounds','Omgångar där PDF:en anger 1–2',1,2],['rest','Vila mellan set (sekunder)',0,120]].map(([k,l,min,max])=>`<label><span>${l}</span><input name="${k}" type="number" min="${min}" max="${max}" step="1" value="${s[k]}" required></label>`).join('')}<label class="check"><span>Ljud som stöd</span><input name="sound" type="checkbox" ${s.sound?'checked':''}></label>${soundControls(false)}<label class="check"><span>Båda sidor för ensidiga övningar</span><input name="both" type="checkbox" ${s.both?'checked':''}></label><p class="note">Vadstretch med rakt ben görs alltid på båda sidor enligt PDF:en. Sidval för övriga övningar och 30 sekunders standardvila är appval; anpassa efter fysioterapeutens råd.</p>${button('save-settings','Spara mitt upplägg','primary')}<p id="settings-saved" role="status" class="note"></p></form><section class="card"><h2>På mobilen</h2><p>Lägg sidan på hemskärmen via webbläsarens meny. Håll appen synlig under passet. Om du lämnar den pausas passet och du fortsätter själv när du kommer tillbaka. Påbörjade pass sparas automatiskt på den här enheten, även om du laddar om sidan.</p><p class="note">Använd Testa ljud före passet. Om provet är tyst, kontrollera telefonens medievolym och vald ljudutgång, till exempel hörlurar. Kort signal markerar start och tempo; två toner markerar att en del eller vilan är klar.</p></section>`}
 function render(view=location.hash.slice(1)||'home',focus=false){if(completed&&!session)view='complete';if(view==='complete'&&!completed)view='home';if(session){renderSession();return}app.classList.remove('session-view');current=['home','program','progress','settings','follow','complete'].includes(view)?view:'home';$('#nav').hidden=false;app.innerHTML=current==='program'?program():current==='progress'?progress():current==='settings'?settings():current==='follow'?follow():current==='complete'?complete():home();$('#nav').querySelectorAll('a').forEach(a=>{if(a.hash==='#'+current)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});bind();if(focus)app.querySelector('h1')?.focus()}
@@ -122,7 +144,7 @@ function persistDraft(){
   try{
     if(completed)localStorage.setItem(DRAFT_KEY,JSON.stringify({version:1,completed}));
     else if(session)localStorage.setItem(DRAFT_KEY,JSON.stringify({version:1,
-      session:{settings:session.settings,index:session.index,rep:session.rep,phase:session.phase,started:session.started},
+      session:{settings:session.settings,index:session.index,rep:session.rep,phase:session.phase,...(session.phase==='transition'?{nextPhase:session.nextPhase}:{}),started:session.started},
       remaining:running?Math.max(0,deadline-performance.now()):remaining,duration,elapsedMs:passTime()}));
     else return clearDraft();
     return true;
@@ -192,8 +214,9 @@ function bindImportActions(){
 function partLabel(t){const e=exercises[t.ei];return `${e.name}${t.side?' · '+t.side.toLowerCase():''} · ${t.kind==='stretch'?'omgång':'set'} ${t.set} av ${t.sets}`}
 function renderSession(){
   const t=step(),e=exercises[t.ei],next=session.steps[session.index+1];
+  preloadPoses();
   $('#nav').hidden=true;app.classList.add('session-view');
-  const phase=passPaused?'Pausat':{ready:'Gör dig redo',up:'Upp',down:'Sänk långsamt',hold:'Håll kvar',manual:'Ditt eget tempo',rest:'Vila',done:'Bra, den delen är klar'}[session.phase];
+  const phase=passPaused?'Pausat':session.phase==='transition'?'Förbered: '+({up:'upp på tå',down:'sänk långsamt',hold:'håll kvar',manual:'nästa knäböj'}[session.nextPhase]):{ready:'Gör dig redo',up:'Upp',down:'Sänk långsamt',hold:'Håll kvar',manual:'Ditt eget tempo',rest:'Vila',done:'Bra, den delen är klar'}[session.phase];
   const finished=session.index+(session.phase==='done'?1:0);
   app.innerHTML=heading(`Övning ${t.ei+1} av 8`,e.name)+`
     <div class="row wrap"><span class="pill">${t.side?t.side+' · ':''}${t.kind==='stretch'?`Omgång ${t.set} av ${t.sets}`:`Set ${t.set} av ${t.sets}`}</span><span class="note">Del ${session.index+1} av ${session.steps.length}</span></div>
@@ -201,7 +224,7 @@ function renderSession(){
     <div class="session-workspace">${imageButton(e,true)}<section class="timer"><p class="phase" id="phase" role="status">${phase}</p><div class="ring"><div class="ring-inner" role="timer" aria-live="off"><strong id="digits">${session.phase==='ready'?(t.kind==='stretch'?t.seconds:t.reps):t.kind==='squat'&&session.phase==='manual'?session.rep:'—'}</strong><span id="timer-unit">${t.kind==='squat'?'repetitioner':session.phase==='ready'&&t.kind==='heel'?'repetitioner':'sekunder'}</span></div></div><p class="muted" id="count">${t.kind==='stretch'?'Andas lugnt':`Repetition ${session.rep} av ${t.reps}`}</p></section></div>
     <div class="session-primary" id="session-controls">${controls()}</div>
     <div class="session-meta"><p class="note">Passtid <strong id="elapsed">${formatDuration(passTime())}</strong></p><p class="note">${next?'Nästa: '+partLabel(next):'Sista delen · sedan följer du upp passet'}</p></div>
-    <div class="exercise-guide"><details class="session-instructions"><summary>Så gör du</summary><p>${e.text}</p><p class="note">${e.dose}</p>${e.video?`<a href="${esc(e.video)}" target="_blank" rel="noopener">Visa originalvideo ↗</a>`:''}</details></div>
+    <div class="exercise-guide"><details class="session-instructions"><summary>Så gör du</summary><p>${e.text}</p><p class="note">${e.dose}</p>${e.side?'<p class="note">Bilden visar positionen som exempel. Följ passets sidangivelse för vilket ben du ska träna.</p>':''}${e.video?`<a href="${esc(e.video)}" target="_blank" rel="noopener">Visa originalvideo ↗</a>`:''}</details></div>
     <details class="session-options"><summary>Fler alternativ och ljud</summary>${soundControls()}<div class="actions wrap">${!passPaused&&!running?button('pause-break','Pausa passet'):''}${button('cancel','Avbryt pass','danger')}</div></details>
     <div id="cancel-prompt">${cancelPrompt?`<div class="card"><p>Avbryta passet? Det räknas då inte som genomfört.</p><div class="actions">${button('confirm-cancel','Ja, avbryt','danger')}${button('keep','Stanna kvar')}</div></div>`:''}</div>
     ${imageDialog()}`;
@@ -211,20 +234,33 @@ function controls(){if(passPaused)return button('resume-pass','Fortsätt passet'
 function bindSession(){
   bindImages();bindSoundControls();const on=(id,f)=>{if($('#'+id))$('#'+id).onclick=f};
   on('pause-break',pause);
-  on('resume-pass',()=>runWithSound(()=>{passPaused=false;wake();startClock();if(['up','down','hold','rest'].includes(session.phase))resume();else{persistDraft();renderSession()}}));
-  on('go',()=>runWithSound(()=>{startClock();wake();if(step().kind==='squat'){session.phase='manual';persistDraft();beep('start');renderSession()}else begin(step().kind==='heel'?'up':'hold',step().kind==='heel'?1:step().seconds)}));
+  on('resume-pass',()=>runWithSound(()=>{passPaused=false;wake();startClock();if(['up','down','hold','rest','transition'].includes(session.phase))resume();else{persistDraft();renderSession()}}));
+  on('go',()=>runWithSound(()=>{startClock();wake();if(step().kind==='squat')begin('manual');else begin(step().kind==='heel'?'up':'hold',step().kind==='heel'?1:step().seconds)}));
   on('pause',()=>{if(running)pause();else return runWithSound(()=>{wake();resume()})});
-  on('rep',()=>runWithSound(()=>{if(session.rep<step().reps){session.rep++;persistDraft();beep('tick');renderSession()}else finishPart()}));
+  on('rep',()=>runWithSound(()=>{if(session.rep<step().reps){session.rep++;begin('manual')}else finishPart()}));
   on('next',()=>runWithSound(nextPart));
   on('cancel',()=>{pause();cancelPrompt=true;renderSession()});
   on('keep',()=>{cancelPrompt=false;renderSession()});
   on('confirm-cancel',()=>{if(!clearDraft())return;clearInterval(timer);running=false;stopClock();cancelSoundTest();soundAction++;audioPreparing=false;session=null;passPaused=false;release();render('home')});
 }
-function begin(phase,seconds){session.phase=phase;duration=seconds;remaining=seconds*1000;resume()}
-function resume(){passPaused=false;startClock();deadline=performance.now()+remaining;running=true;lastSecond=Math.ceil(remaining/1000);clearInterval(timer);timer=setInterval(tick,60);persistDraft();renderSession();beep(session.phase==='up'?'up':session.phase==='down'?'down':'start')}
+// A persisted timed phase keeps the one-second cue readable and resumable.
+function begin(phase,seconds){
+  if(phase==='rest'){activatePhase(phase,seconds);return}
+  session.nextPhase=phase;session.phase='transition';duration=1;remaining=1000;resume();
+}
+function activatePhase(phase,seconds){
+  delete session.nextPhase;session.phase=phase;
+  if(phase==='manual'){running=false;duration=0;remaining=0;persistDraft();beep('start');renderSession();return}
+  duration=seconds;remaining=seconds*1000;resume();
+}
+function finishTransition(){
+  const phase=session.nextPhase;
+  activatePhase(phase,phase==='up'?1:phase==='down'?step().lower:phase==='hold'?step().seconds:0);
+}
+function resume(){passPaused=false;startClock();deadline=performance.now()+remaining;running=true;lastSecond=Math.ceil(remaining/1000);clearInterval(timer);timer=setInterval(tick,60);persistDraft();renderSession();if(session.phase!=='transition')beep(session.phase==='up'?'up':session.phase==='down'?'down':'start')}
 function pause(){soundAction++;audioPreparing=false;cancelSoundTest();passPaused=true;stopClock();if(running){remaining=Math.max(0,deadline-performance.now());running=false}clearInterval(timer);release();persistDraft();if(session)renderSession()}
-function paint(){if(!session)return;const timed=['up','down','hold','rest'].includes(session.phase);if(timed){const secs=Math.ceil(Math.max(0,running?deadline-performance.now():remaining)/1000);$('#digits').textContent=secs;$('#timer-unit').textContent='sekunder';$('.ring').style.setProperty('--sweep',Math.min(100,100*(1-(running?deadline-performance.now():remaining)/(duration*1000)))+'%');}}
-function tick(){if(!session||!running)return;if(performance.now()>=deadline){running=false;clearInterval(timer);remaining=0;if(session.phase==='up')begin('down',step().lower);else if(session.phase==='down'&&session.rep<step().reps){session.rep++;begin('up',1)}else if(session.phase==='rest'){session.phase='ready';persistDraft();renderSession();beep('restEnd')}else finishPart()}else{const second=Math.ceil(Math.max(0,deadline-performance.now())/1000);if(second!==lastSecond){lastSecond=second;if(['up','down'].includes(session.phase)&&second>0)beep('tick')}paint()}}
+function paint(){if(!session)return;const timed=['up','down','hold','rest','transition'].includes(session.phase);if(timed){const secs=Math.ceil(Math.max(0,running?deadline-performance.now():remaining)/1000);$('#digits').textContent=secs;$('#timer-unit').textContent='sekunder';$('.ring').style.setProperty('--sweep',Math.min(100,100*(1-(running?deadline-performance.now():remaining)/(duration*1000)))+'%');}}
+function tick(){if(!session||!running)return;if(performance.now()>=deadline){running=false;clearInterval(timer);remaining=0;if(session.phase==='transition')finishTransition();else if(session.phase==='up')begin('down',step().lower);else if(session.phase==='down'&&session.rep<step().reps){session.rep++;begin('up',1)}else if(session.phase==='rest'){session.phase='ready';persistDraft();renderSession();beep('restEnd')}else finishPart()}else{const second=Math.ceil(Math.max(0,deadline-performance.now())/1000);if(second!==lastSecond){lastSecond=second;if(['up','down'].includes(session.phase)&&second>0)beep('tick')}paint()}}
 function finishPart(){running=false;clearInterval(timer);session.phase='done';persistDraft();release();beep('complete');renderSession()}
 function nextPart(){startClock();const old=step();session.index++;session.rep=1;if(session.index>=session.steps.length){completed={id:crypto.randomUUID(),at:new Date().toISOString(),day:dayKey(),settings:session.settings,signature:signature(session.settings),next:null,durationMs:passTime()};stopClock();session=null;persistDraft();release();location.hash='complete';render('complete');return}if(step().ei===old.ei&&step().set!==old.set&&session.settings.rest>0)begin('rest',session.settings.rest);else{session.phase='ready';persistDraft();renderSession();window.scrollTo(0,0)}}
 document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelSoundTest();if(document.hidden&&session){pause();notice('Passet pausades när du lämnade appen. Fortsätt när du är redo.')}});
@@ -235,4 +271,4 @@ window.addEventListener('hashchange',()=>{if(completed&&!session)render('complet
 loadDraft();
 setInterval(()=>{if(session&&activeSince!==null){persistDraft();if($('#elapsed'))$('#elapsed').textContent=formatDuration(passTime())}},1000);
 render();if(unreadStorage!==null)showRecovery();
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js',{type:'module'}).catch(()=>{});

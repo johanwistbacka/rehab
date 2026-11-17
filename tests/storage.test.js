@@ -41,8 +41,22 @@ test('completed questionnaire survives separately from an active session',()=>{
   assert.equal(restored.completed.id,completed.id);assert.equal(restored.completed.durationMs,123000);
 });
 test('duration estimate includes exactly the configured rests, and labels measured time',()=>{
-  assert.equal(estimatedSeconds(defaults),690);
-  assert.equal(estimatedSeconds({...defaults,rest:0}),570);
+  assert.equal(estimatedSeconds(defaults),790);
+  assert.equal(estimatedSeconds({...defaults,rest:0}),670);
   assert.equal(estimatedSeconds({...defaults,rounds:2})-estimatedSeconds({...defaults,rounds:2,rest:0}),210);
   assert.equal(formatDuration(0),'0 s');assert.equal(formatDuration(124999),'2 min 4 s');
+});
+
+test('transition drafts preserve their destination and reject invalid timers or exercise phases',()=>{
+  const transition=(index,nextPhase,overrides={})=>draft('transition',{session:{settings:{...defaults},index,rep:1,phase:'transition',nextPhase,started:'2026-11-04T12:00:00Z'},duration:1,remaining:650,...overrides});
+  for(const [index,nextPhase] of [[0,'up'],[0,'down'],[3,'hold'],[13,'manual']]){
+    const restored=restoreDraft(transition(index,nextPhase));
+    assert.equal(restored.session.nextPhase,nextPhase);assert.equal(restored.remaining,650);
+  }
+  assert.throws(()=>restoreDraft(transition(0,'hold')));
+  assert.throws(()=>restoreDraft(transition(3,'up')));
+  assert.throws(()=>restoreDraft(transition(13,'hold')));
+  assert.throws(()=>restoreDraft(transition(0,undefined)));
+  assert.throws(()=>restoreDraft(transition(0,'up',{duration:2})));
+  assert.throws(()=>restoreDraft(transition(0,'up',{remaining:1001})));
 });

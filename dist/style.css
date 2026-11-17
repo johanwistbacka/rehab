@@ -90,3 +90,15 @@ dialog .dialog-image{height:auto;max-height:65vh;object-fit:contain;background:#
   .session-workspace .ring{width:112px;height:112px}
   .session-workspace .ring strong{font-size:44px}
 }
+
+/* Fixed square viewports select poses without editing the generated sheets. */
+.pose-frames{display:grid;width:100%;grid-template-columns:minmax(0,1fr);background:#f8e5c5}
+.pose-frames.pose-pair{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pose-frame{display:block;position:relative;aspect-ratio:1;overflow:hidden;min-width:0;width:min(100%,var(--pose-height,100%));justify-self:center}
+.pose-frame .pose-image{position:absolute;top:0;left:0;height:100%;max-width:none;display:block;margin:0;padding:0;border-radius:0}
+.pose-frame .pose-fallback{object-fit:contain}
+.session-workspace .pose-preview{gap:3px;padding-bottom:8px}
+.pose-preview .pose-frames{--pose-height:clamp(130px,25svh,230px);height:var(--pose-height);align-items:center}
+.pose-caption{font-size:11px;font-weight:650;line-height:1.3;padding:3px 5px 0}
+#dialog-pose{margin-top:16px;width:min(100%,65svh);margin-inline:auto;border-radius:16px;overflow:hidden}
+@media(max-height:600px){.pose-preview .pose-frames{--pose-height:130px}}

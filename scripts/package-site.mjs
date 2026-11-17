@@ -1,12 +1,13 @@
 import {copyFile, mkdir, readFile, rm} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+import {poseAssets} from '../dist/poses.js';
 
 const source = fileURLToPath(new URL('../dist/', import.meta.url));
 const target = fileURLToPath(new URL('../_site/', import.meta.url));
 const files = [
   'index.html', 'style.css', 'app.js', 'model.js', 'storage.js', 'sound.js',
-  'sw.js', 'icon.svg', 'manifest.json', 'assets/icon-192.png', 'assets/icon-512.png',
+  'poses.js', ...poseAssets, 'sw.js', 'icon.svg', 'manifest.json', 'assets/icon-192.png', 'assets/icon-512.png',
   ...Array.from({length:8}, (_, i) => `assets/exercise-${i}.png`),
   ...Array.from({length:8}, (_, i) => `assets/illustrations/1950s/exercise-${i}.png`)
 ];
@@ -19,4 +20,4 @@ for (const file of files) {
   await mkdir(path.dirname(destination), {recursive:true});
   await copyFile(path.join(source, file), destination);
 }
-console.log(`Packaged ${files.length} app files in _site/ (current illustrations only).`);
+console.log(`Packaged ${files.length} app files in _site/ (including exercise poses).`);

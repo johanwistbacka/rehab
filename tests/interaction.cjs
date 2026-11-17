@@ -16,7 +16,7 @@ function boot({history,draft,failWrites=false,AudioContext}={}){
   if(draft)w.localStorage.setItem('rehab-johan-v1-pass',draft);
   const originalSet=w.Storage.prototype.setItem;
   w.Storage.prototype.setItem=function(...args){if(failWrites)throw Error('Storage full');return originalSet.apply(this,args)};
-  const source=['model.js','storage.js','sound.js','app.js'].map(name=>fs.readFileSync(root+name,'utf8').replace(/^import .*\n/gm,'').replaceAll('export ', '')).join('\n');
+  const source=['model.js','storage.js','sound.js','poses.js','app.js'].map(name=>fs.readFileSync(root+name,'utf8').replace(/^import .*\n/gm,'').replaceAll('export ', '')).join('\n');
   w.eval(source+'\nglobalThis.hooks={get state(){return state},get session(){return session},get completed(){return completed},get running(){return running},get remaining(){return remaining},render,passTime,eligible};');
   return {w,d:w.document,h:w.hooks,click(id){const el=w.document.getElementById(id);assert.ok(el,'missing control '+id);el.click()},
     advance(ms){clock+=ms;[...intervals.values()].forEach(fn=>fn())},
@@ -39,14 +39,28 @@ function soundFixture(deferred=false){
 async function main(){
   const {fresh}=await import('../dist/model.js');
   {
+    const b=boot();b.click('start');assert.equal(b.d.querySelector('#enlarge-image').dataset.pose,'0');
+    b.click('go');assert.equal(b.d.querySelector('#enlarge-image').dataset.pose,'1');
+    b.advance(1000);assert.equal(b.d.querySelector('#enlarge-image').dataset.pose,'1');
+    b.advance(1000);assert.equal(b.d.querySelector('#enlarge-image').dataset.pose,'2');
+    b.click('enlarge-image');assert.equal(b.h.running,false);assert.equal(b.d.querySelector('#dialog-pose').hidden,false);
+    b.click('show-original');assert.equal(b.d.querySelector('#dialog-pose').hidden,true);assert.equal(b.d.querySelector('#dialog-image').hidden,false);
+    b.click('show-original');assert.equal(b.d.querySelector('#dialog-pose').hidden,false);
+    const image=b.d.querySelector('#dialog-pose .pose-image');image.dispatchEvent(new b.w.Event('error'));
+    assert.ok(image.src.endsWith('/illustrations/1950s/exercise-0.png'));assert.equal(image.style.width,'100%');
+    b.click('close-image');
+    const restored=boot({draft:b.draft()});restored.click('resume-saved');assert.equal(restored.d.querySelector('#enlarge-image').dataset.pose,'2');restored.close();b.close();
+    console.log('PASS: poses preview upcoming movement, freeze and restore, enlarge and fall back');
+  }
+  {
     const data=fresh();data.settings.sound=true;
     const fixture=soundFixture(true),b=boot({history:JSON.stringify(data),AudioContext:fixture.AudioContext});
     b.click('start');const activation=b.d.querySelector('#go').onclick();
     assert.equal(b.h.session.phase,'ready');assert.ok(b.d.querySelector('#go').disabled);
     assert.equal(fixture.contexts[0].nodes.length,0);fixture.release();await activation;
-    const audio=fixture.contexts[0];assert.equal(b.h.session.phase,'up');assert.equal(audio.nodes.length,1);assert.equal(audio.nodes[0].hz,760);
+    const audio=fixture.contexts[0];assert.equal(b.h.session.phase,'transition');assert.equal(audio.nodes.length,0);b.advance(1000);assert.equal(b.h.session.phase,'up');assert.equal(audio.nodes.length,1);assert.equal(audio.nodes[0].hz,760);
     b.h.render();assert.equal(audio.nodes.length,1);
-    b.advance(1000);assert.equal(b.h.session.phase,'down');assert.equal(audio.nodes.length,2);
+    b.advance(1000);assert.equal(b.h.session.phase,'transition');assert.equal(audio.nodes.length,1);b.advance(1000);assert.equal(b.h.session.phase,'down');assert.equal(audio.nodes.length,2);
     b.advance(1000);assert.equal(audio.nodes.length,3);
     b.click('pause');const count=audio.nodes.length;b.advance(10000);assert.equal(audio.nodes.length,count);
     audio.state='interrupted';audio.onstatechange();await b.d.querySelector('#resume-pass').onclick();
@@ -67,9 +81,9 @@ async function main(){
     class UnavailableAudioContext{constructor(){throw Error('Audio unavailable')}}
     const b=boot({history:JSON.stringify(data),AudioContext:UnavailableAudioContext});
     b.click('start');await b.d.querySelector('#go').onclick();
-    assert.equal(b.h.running,true);assert.equal(b.h.session.phase,'up');
+    assert.equal(b.h.running,true);assert.equal(b.h.session.phase,'transition');
     assert.ok(b.d.querySelector('#sound-status').textContent.includes('kunde inte startas'));
-    b.advance(1000);assert.equal(b.h.session.phase,'down');b.close();
+    b.advance(1000);assert.equal(b.h.session.phase,'up');b.advance(1000);assert.equal(b.h.session.phase,'transition');b.advance(1000);assert.equal(b.h.session.phase,'down');b.close();
     console.log('PASS: an audio failure is visible and does not block the exercise timer');
   }
   {
@@ -84,29 +98,29 @@ async function main(){
     const data=fresh();data.settings.sound=true;
     const fixture=soundFixture(),b=boot({history:JSON.stringify(data),AudioContext:fixture.AudioContext});
     b.click('start');await b.d.querySelector('#go').onclick();const audio=fixture.contexts[0];
-    for(let i=0;i<10;i++){b.advance(1000);b.advance(3000)}
+    for(let i=0;i<10;i++){b.advance(1000);b.advance(1000);b.advance(1000);b.advance(3000)}
     assert.equal(b.h.session.phase,'done');b.click('next');assert.equal(b.h.session.phase,'rest');
     const count=audio.nodes.length;b.advance(30000);assert.equal(b.h.session.phase,'ready');assert.equal(audio.nodes.length,count+2);
     while(b.h.session.steps[b.h.session.index].kind!=='stretch'){
       if(b.h.session.phase==='ready')b.click('go');else if(b.h.session.phase==='done')b.click('next');else b.advance(61000);
     }
-    b.click('go');const stretchCount=audio.nodes.length;b.advance(44000);assert.equal(audio.nodes.length,stretchCount);
+    b.click('go');b.advance(1000);const stretchCount=audio.nodes.length;b.advance(44000);assert.equal(audio.nodes.length,stretchCount);
     b.advance(1000);assert.equal(b.h.session.phase,'done');assert.equal(audio.nodes.length,stretchCount+2);b.close();
     console.log('PASS: rest end and stretch completion signal exactly once without changing durations');
   }
   {
-    const b=boot();b.click('start');b.click('go');assert.equal(b.h.session.phase,'up');b.advance(1000);assert.equal(b.h.session.phase,'down');b.advance(1200);b.click('pause');const time=b.h.passTime(),rep=b.h.session.rep;
+    const b=boot();b.click('start');b.click('go');b.advance(1000);assert.equal(b.h.session.phase,'up');b.advance(1000);assert.equal(b.h.session.phase,'transition');b.advance(1000);assert.equal(b.h.session.phase,'down');b.advance(1200);b.click('pause');const time=b.h.passTime(),rep=b.h.session.rep;
     b.advance(20000);assert.equal(b.h.session.rep,rep);assert.equal(b.h.passTime(),time);assert.ok(b.d.querySelector('#resume-pass'));
     b.click('resume-pass');b.advance(1800);assert.equal(b.h.session.rep,2);
     b.click('cancel');b.click('confirm-cancel');assert.equal(b.h.session,null);assert.equal(b.h.state.history.length,0);assert.equal(b.draft(),null);b.close();
     console.log('PASS: cadence, measured time excludes pauses, cancellation clears only draft');
   }
   {
-    const b=boot();b.click('start');b.click('go');b.advance(1000);b.advance(1200);b.hidden(true);
+    const b=boot();b.click('start');b.click('go');b.advance(1000);b.advance(1000);b.advance(1000);b.advance(1200);b.hidden(true);
     const raw=b.draft(),saved=JSON.parse(raw);assert.equal(saved.session.phase,'down');assert.equal(saved.remaining,1800);
-    b.advance(10000);assert.equal(b.h.passTime(),2200);
-    const next=boot({draft:raw});assert.equal(next.h.session,null);assert.ok(next.d.querySelector('#resume-saved'));next.advance(20000);next.click('resume-saved');assert.equal(next.h.running,false);assert.equal(next.h.session.rep,1);assert.equal(next.h.passTime(),2200);
-    next.click('resume-pass');next.advance(1800);assert.equal(next.h.session.rep,2);assert.equal(next.h.passTime(),4000);next.close();b.close();
+    b.advance(10000);assert.equal(b.h.passTime(),4200);
+    const next=boot({draft:raw});assert.equal(next.h.session,null);assert.ok(next.d.querySelector('#resume-saved'));next.advance(20000);next.click('resume-saved');assert.equal(next.h.running,false);assert.equal(next.h.session.rep,1);assert.equal(next.h.passTime(),4200);
+    next.click('resume-pass');next.advance(1800);assert.equal(next.h.session.rep,2);assert.equal(next.h.passTime(),6000);next.close();b.close();
     console.log('PASS: background and reload preserve exact position and exclude time away');
   }
   {
@@ -139,7 +153,7 @@ async function main(){
   }
   {
     const b=boot({history:'{bad data'});b.h.render('settings');b.d.querySelector('form').dispatchEvent(new b.w.Event('submit',{cancelable:true}));assert.equal(b.w.localStorage.getItem('rehab-johan-v1'),'{bad data');b.close();
-    const unread=boot({draft:'{bad draft'});assert.ok(unread.d.querySelector('#start').disabled);assert.ok(unread.d.querySelector('#recover-draft'));assert.equal(unread.draft(),'{bad draft');unread.close();
+    const unread=boot({draft:'{bad draft'});assert.equal(unread.d.querySelector('#start'),null);assert.ok(unread.d.querySelector('#recover-draft'));assert.equal(unread.draft(),'{bad draft');unread.close();
     console.log('PASS: unreadable history and draft are preserved');
   }
   {
@@ -156,7 +170,7 @@ async function main(){
   }
   {
     const b=boot();b.click('start');let guards=0;while(b.h.session.steps[b.h.session.index].kind!=='squat'){assert.ok(++guards<1000);if(b.h.session.phase==='ready')b.click('go');else if(b.h.session.phase==='done')b.click('next');else b.advance(61000)}
-    b.click('go');b.click('rep');b.click('rep');b.advance(5000);const raw=b.draft();
+    b.click('go');b.advance(1000);b.click('rep');b.advance(1000);b.click('rep');b.advance(5000);const raw=b.draft();
     const restored=boot({draft:raw});restored.click('resume-saved');assert.equal(restored.h.session.phase,'manual');assert.equal(restored.h.session.rep,3);const time=restored.h.passTime();restored.advance(20000);assert.equal(restored.h.passTime(),time);restored.click('resume-pass');restored.click('rep');assert.equal(restored.h.session.rep,4);restored.close();b.close();
     console.log('PASS: manual squat repetition resumes without adding time away');
   }

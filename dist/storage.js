@@ -1,7 +1,7 @@
 import {defaults, validSettings, signature, plan, dayKey} from './model.js';
 
 const feelings = ['good', 'hard', 'pain'];
-const timedPhases = ['up', 'down', 'hold', 'rest'];
+const timedPhases = ['up', 'down', 'hold', 'rest', 'transition'];
 const validDate = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const validDay = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   validDate(value + 'T12:00:00') && dayKey(new Date(value + 'T12:00:00')) === value;
@@ -71,20 +71,21 @@ export function restoreDraft(text) {
   if (!Number.isInteger(raw.index) || raw.index < 0 || raw.index >= steps.length ||
       !Number.isInteger(raw.rep) || raw.rep < 1 || raw.rep > settings.reps) throw Error('Felaktig passposition.');
   const step = steps[raw.index];
-  const phases = ['ready', 'done', 'rest', ...(step.kind === 'heel' ? ['up', 'down'] : step.kind === 'stretch' ? ['hold'] : ['manual'])];
+  const phases = ['ready', 'done', 'rest', 'transition', ...(step.kind === 'heel' ? ['up', 'down'] : step.kind === 'stretch' ? ['hold'] : ['manual'])];
   if (!phases.includes(raw.phase)) throw Error('Felaktig passfas.');
+  if (raw.phase === 'transition' && !(step.kind === 'heel' ? ['up','down'] : step.kind === 'stretch' ? ['hold'] : ['manual']).includes(raw.nextPhase)) throw Error('Felaktigt nästa steg.');
   if (timedPhases.includes(raw.phase)) {
-    const expected = raw.phase === 'up' ? 1 : raw.phase === 'down' ? settings.lower : raw.phase === 'hold' ? settings.stretch : settings.rest;
+    const expected = ['up', 'transition'].includes(raw.phase) ? 1 : raw.phase === 'down' ? settings.lower : raw.phase === 'hold' ? settings.stretch : settings.rest;
     if (value.duration !== expected || !nonnegative(value.remaining) || value.remaining > expected * 1000) throw Error('Felaktig timer.');
   }
-  return {session: {settings, steps, index: raw.index, rep: raw.rep, phase: raw.phase, started: raw.started},
+  return {session: {settings, steps, index: raw.index, rep: raw.rep, phase: raw.phase, ...(raw.phase === 'transition' ? {nextPhase: raw.nextPhase} : {}), started: raw.started},
     remaining: value.remaining ?? 0, duration: value.duration ?? 0, elapsedMs: value.elapsedMs};
 }
 
 export function estimatedSeconds(settings) {
   const steps = plan(settings);
   return steps.reduce((total, step, index) => total +
-    (step.kind === 'stretch' ? step.seconds : step.kind === 'heel' ? step.reps * (1 + step.lower) : 0) +
+    (step.kind === 'stretch' ? step.seconds + 1 : step.kind === 'heel' ? step.reps * (1 + step.lower + 2) : step.reps) +
     (index > 0 && steps[index - 1].ei === step.ei && steps[index - 1].set !== step.set ? settings.rest : 0), 0);
 }
 
