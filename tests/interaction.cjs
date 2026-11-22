@@ -39,6 +39,15 @@ function soundFixture(deferred=false){
 async function main(){
   const {fresh}=await import('../dist/model.js');
   {
+    const b=boot();b.click('start');b.click('go');
+    const info=()=>['#phase','#digits','#timer-unit','#count'].map(id=>b.d.querySelector(id).textContent).join('|')+'|'+b.d.querySelector('#enlarge-image').dataset.pose;
+    const upcomingUp=info();assert.ok(upcomingUp.startsWith('Upp|1|sekunder|'));
+    b.advance(999);assert.equal(info(),upcomingUp);b.advance(1);assert.equal(info(),upcomingUp);
+    b.advance(1000);const upcomingDown=info();assert.ok(upcomingDown.startsWith('Sänk långsamt|3|sekunder|'));
+    b.advance(999);assert.equal(info(),upcomingDown);b.advance(1);assert.equal(info(),upcomingDown);b.close();
+    console.log('PASS: upcoming instruction, image and duration stay unchanged throughout preparation and movement start');
+  }
+  {
     const b=boot();b.click('start');assert.equal(b.d.querySelector('#enlarge-image').dataset.pose,'0');
     b.click('go');assert.equal(b.d.querySelector('#enlarge-image').dataset.pose,'1');
     b.advance(1000);assert.equal(b.d.querySelector('#enlarge-image').dataset.pose,'1');
