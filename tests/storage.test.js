@@ -60,3 +60,17 @@ test('transition drafts preserve their destination and reject invalid timers or 
   assert.throws(()=>restoreDraft(transition(0,'up',{duration:2})));
   assert.throws(()=>restoreDraft(transition(0,'up',{remaining:1001})));
 });
+
+test('legacy backups and drafts without order retain the original program',()=>{
+  const settings={...defaults};delete settings.order;
+  const restored=restoreDraft(draft('down',{session:{settings,index:0,rep:1,phase:'down',started:'2026-11-04T12:00:00Z'}}));
+  assert.deepEqual(restored.session.steps,plan(defaults));
+  const parsed=parseBackup(JSON.stringify({version:1,settings,history:[record({settings})]}));
+  assert.deepEqual(parsed.settings.order,[0,1,2,3,4,5,6,7]);
+});
+test('custom-order draft preserves exact exercise position and set rest, rejecting corrupt order',()=>{
+  const settings={...defaults,order:[7,6,5,4,3,2,1,0],rest:60};
+  const raw={version:1,session:{settings,index:1,rep:1,phase:'rest',started:'2026-11-04T12:00:00Z'},duration:60,remaining:42000,elapsedMs:123000};
+  const restored=restoreDraft(JSON.stringify(raw));assert.equal(restored.session.steps[1].ei,7);assert.equal(restored.remaining,42000);
+  raw.session.settings.order=[0,0,2,3,4,5,6,7];assert.throws(()=>restoreDraft(JSON.stringify(raw)));
+});

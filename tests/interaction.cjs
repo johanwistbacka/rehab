@@ -45,6 +45,30 @@ function soundFixture(deferred=false){
 async function main(){
   const {fresh}=await import('../dist/model.js');
   {
+    const state=fresh();state.settings.sound=true;
+    const fixture=soundFixture(),raw={version:1,session:{settings:state.settings,index:1,rep:1,phase:'rest',started:new Date().toISOString()},remaining:30000,duration:30,elapsedMs:0};
+    const b=boot({history:JSON.stringify(state),draft:JSON.stringify(raw),AudioContext:fixture.AudioContext});
+    b.click('resume-saved');await b.d.querySelector('#resume-pass').onclick();const audio=fixture.contexts[0];assert.equal(audio.nodes.length,1);assert.equal(audio.nodes[0].hz,340);
+    for(let i=0;i<29;i++){b.advance(1000);assert.equal(audio.nodes.at(-1).hz,340)}
+    assert.equal(audio.nodes.length,30);b.advance(1000);assert.equal(b.h.session.phase,'ready');assert.equal(audio.nodes.length,32);b.close();
+    console.log('PASS: set rest sounds once per second with its own tone, then gives the distinct end signal');
+  }
+  {
+    const b=boot();b.h.render('settings');
+    b.d.querySelector('[data-move="0"][data-direction="1"]').click();
+    assert.equal(b.d.querySelector('#exercise-order-list li').dataset.orderExercise,'1');
+    assert.deepEqual(Array.from(b.h.state.settings.order),[0,1,2,3,4,5,6,7]);
+    b.d.querySelector('[data-rest="60"]').click();assert.equal(b.d.querySelector('[name=rest]').value,'60');
+    b.d.querySelector('#settings-form').dispatchEvent(new b.w.Event('submit',{cancelable:true}));
+    assert.deepEqual(Array.from(b.h.state.settings.order),[1,0,2,3,4,5,6,7]);assert.equal(b.h.state.settings.rest,60);
+    b.h.render('home');b.click('start');assert.equal(b.h.session.steps[0].ei,1);assert.ok(b.d.querySelector('.eyebrow').textContent.includes('Övning 1 av 8'));
+    const raw=b.draft(),stored=b.w.localStorage.getItem('rehab-johan-v1');
+    const updated=JSON.parse(stored);updated.settings.order=[7,6,5,4,3,2,1,0];updated.settings.rest=15;
+    const restored=boot({history:JSON.stringify(updated),draft:raw});restored.click('resume-saved');assert.equal(restored.h.session.steps[0].ei,1);assert.equal(restored.h.session.settings.rest,60);
+    restored.close();b.close();
+    console.log('PASS: order and set rest save for new passes, while a restored pass keeps its snapshot');
+  }
+  {
     const badge={enabled:true,calls:[],notification:{permission:'granted',async requestPermission(){throw Error('Must not prompt')}}};
     const b=boot({badge});await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(badge.calls,[8]);
     b.click('start');finish(b);await new Promise(resolve=>setImmediate(resolve));assert.equal(badge.calls.at(-1),0);
@@ -169,7 +193,7 @@ async function main(){
     const fixture=soundFixture(),b=boot({AudioContext:fixture.AudioContext});b.h.render('settings');
     b.d.querySelector('[name=reps]').value=15;await b.d.querySelector('#test-sound').onclick();
     assert.equal(b.h.state.settings.reps,10);assert.equal(b.h.state.settings.sound,false);
-    assert.equal(fixture.contexts[0].nodes.length,4);assert.ok(b.d.querySelector('#sound-status').textContent.includes('Provljudet har startats'));
+    assert.equal(fixture.contexts[0].nodes.length,6);assert.ok(b.d.querySelector('#sound-status').textContent.includes('Provljudet har startats'));
     assert.equal(b.w.localStorage.getItem('rehab-johan-v1'),null);b.close();
     console.log('PASS: test sound plays while muted without submitting settings or changing preference');
   }
@@ -183,9 +207,9 @@ async function main(){
     while(b.h.session.steps[b.h.session.index].kind!=='stretch'){
       if(b.h.session.phase==='ready')b.click('go');else if(b.h.session.phase==='done')b.click('next');else b.advance(61000);
     }
-    b.click('go');b.advance(1000);const stretchCount=audio.nodes.length;b.advance(44000);assert.equal(audio.nodes.length,stretchCount);
-    b.advance(1000);assert.equal(b.h.session.phase,'done');assert.equal(audio.nodes.length,stretchCount+2);b.close();
-    console.log('PASS: rest end and stretch completion signal exactly once without changing durations');
+    b.click('go');b.advance(1000);const stretchCount=audio.nodes.length;for(let i=0;i<44;i++)b.advance(1000);assert.equal(audio.nodes.length,stretchCount+44);assert.equal(audio.nodes.at(-1).hz,640);
+    b.advance(1000);assert.equal(b.h.session.phase,'done');assert.equal(audio.nodes.length,stretchCount+46);b.close();
+    console.log('PASS: rest end and stretch completion signal exactly once, with a hold cue each second');
   }
   {
     const b=boot();b.click('start');b.click('go');b.advance(1000);assert.equal(b.h.session.phase,'up');b.advance(1000);assert.equal(b.h.session.phase,'transition');b.advance(1000);assert.equal(b.h.session.phase,'down');b.advance(1200);b.click('pause');const time=b.h.passTime(),rep=b.h.session.rep;

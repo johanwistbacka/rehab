@@ -66,3 +66,13 @@ test('a browser that never resumes does not leave the app waiting forever',async
   const player=new SoundPlayer({createContext:()=>audio,timeoutMs:5});
   assert.equal(await player.unlock(),false);assert.equal(player.pending,null);assert.equal(player.play(),false);
 });
+
+test('movement, hold and rest cues have distinct frequencies for both entry and second ticks',async()=>{
+  const audio=context('running'),player=new SoundPlayer({createContext:()=>audio});await player.unlock();
+  const frequencies=[];
+  for(const phase of ['up','down','hold','rest']){
+    player.play(phase);const start=audio.nodes.at(-1).frequencyValue;
+    player.play(phase+'Tick');assert.equal(audio.nodes.at(-1).frequencyValue,start);frequencies.push(start);
+  }
+  assert.equal(new Set(frequencies).size,4);
+});

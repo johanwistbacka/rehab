@@ -35,3 +35,9 @@ test('today\'s completed pass gives zero even before the questionnaire is saved'
   assert.equal(count({...fresh(),history:[{day:today}]}).remaining,0);
   assert.equal(count(fresh(),{completed:{day:today}}).remaining,0);
 });
+
+test('daily count tracks exercise identity when the pass order changes',()=>{
+  const settings={...defaults,order:[7,6,5,4,3,2,1,0]};
+  const progress=count(fresh(),{active:active(2,'done',settings)});
+  assert.deepEqual(progress.done,[7]);assert.equal(progress.remaining,7);
+});

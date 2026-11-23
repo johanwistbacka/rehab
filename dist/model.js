@@ -1,4 +1,4 @@
-export const defaults={stretch:45,reps:10,lower:3,rounds:1,rest:30,sound:false,both:true};
+export const defaults={stretch:45,reps:10,lower:3,rounds:1,rest:30,sound:false,both:true,order:[0,1,2,3,4,5,6,7]};
 export const exercises=[
 {name:'Tåhävningar',kind:'heel',text:'Stå på ett trappsteg enligt bilden. Ha en boll mellan fotknölarna. Gå upp på 1 sekund och sänk på 3–5 sekunder.',dose:'3 × 10–15 repetitioner · 1 sekund upp, 3–5 ner',img:0,video:"https://pt006a.physiotoolsonline.com/physiotools/video.aspx?VCheck=-1212245469&type=HTML5&id=8391&iid=0&actualId=12851454.14298004&&ck=20130606&ts=20130606"},
 {name:'Vadstretch med rakt ben',kind:'stretch',side:true,round:true,text:'Stå i gångställning med benet du ska tänja bakom det andra. Håll främre benet böjt och bakre benet rakt. Ta stöd mot en vägg eller stol. Luta framåt och neråt tills du känner tänjningen i vaden.',dose:'45–60 sekunder · 1–2 omgångar · båda sidor',img:1,video:"https://pt006a.physiotoolsonline.com/physiotools/video.aspx?VCheck=-1212245469&type=HTML5&id=435&iid=0&actualId=12851454.14298010&&ck=20130606&ts=20130606"},
@@ -10,12 +10,16 @@ export const exercises=[
 {name:'Knäböj · Natural squat',kind:'squat',text:'Stå med fötterna höftbrett och kroppstyngden centrerad. Korsa armarna framför dig i axelhöjd och tryck armbågarna lite bortåt. Sänk långsamt kroppen som om du skulle sätta dig. Tryck ifrån med fötterna för att komma upp.',dose:'3 × 10–15 repetitioner · valfritt eget tempo',img:7}
 ];
 export function dayKey(date=new Date()){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
-export function validSettings(s={}){const o={...defaults};for(const [k,lo,hi] of [['stretch',45,60],['reps',10,15],['lower',3,5],['rounds',1,2],['rest',0,120]]){if(Number.isFinite(+s[k]))o[k]=Math.min(hi,Math.max(lo,Math.round(+s[k])))}for(const k of ['sound','both'])if(typeof s[k]==='boolean')o[k]=s[k];return o}
+export function validExerciseOrder(value){
+  const valid=Array.isArray(value)&&value.length===exercises.length&&new Set(value).size===exercises.length&&value.every(i=>Number.isInteger(i)&&i>=0&&i<exercises.length);
+  return valid?[...value]:exercises.map((_,i)=>i);
+}
+export function validSettings(s={}){const o={...defaults,order:validExerciseOrder(s.order)};for(const [k,lo,hi] of [['stretch',45,60],['reps',10,15],['lower',3,5],['rounds',1,2],['rest',0,120]]){if(Number.isFinite(+s[k]))o[k]=Math.min(hi,Math.max(lo,Math.round(+s[k])))}for(const k of ['sound','both'])if(typeof s[k]==='boolean')o[k]=s[k];return o}
 export function signature(s){return [s.stretch,s.reps,s.lower,s.rounds].join('-')}
-export function plan(s){const a=[];exercises.forEach((e,ei)=>{const sets=e.kind==='stretch'?(e.round?s.rounds:1):3;for(let set=1;set<=sets;set++){const sides=e.side?(ei===1||s.both?['Vänster','Höger']:['Vald sida']):[''];for(const side of sides)a.push({ei,set,sets,side,kind:e.kind,seconds:s.stretch,reps:s.reps,lower:s.lower});}});return a}
+export function plan(s){const a=[];validExerciseOrder(s.order).forEach(ei=>{const e=exercises[ei];const sets=e.kind==='stretch'?(e.round?s.rounds:1):3;for(let set=1;set<=sets;set++){const sides=e.side?(ei===1||s.both?['Vänster','Höger']:['Vald sida']):[''];for(const side of sides)a.push({ei,set,sets,side,kind:e.kind,seconds:s.stretch,reps:s.reps,lower:s.lower});}});return a}
 export function proposal(s){if(s.stretch<60)return {key:'stretch',value:Math.min(60,s.stretch+5),label:`Stretch: ${s.stretch} → ${Math.min(60,s.stretch+5)} sekunder`};if(s.reps<15)return {key:'reps',value:s.reps+1,label:`Repetitioner per set: ${s.reps} → ${s.reps+1}`};if(s.lower<5)return {key:'lower',value:s.lower+1,label:`Tåhävning, sänkning: ${s.lower} → ${s.lower+1} sekunder`};return null}
 export function eligible(state,today=dayKey()){const h=state.history.filter(x=>x.signature===signature(state.settings)&&(!state.progressAfter||x.at>state.progressAfter));const days=new Set(h.filter(x=>x.feel==='good'&&x.next==='good'&&x.day<today).map(x=>x.day));return days.size>=3&&!!proposal(state.settings)}
-export function fresh(){return {version:1,settings:{...defaults},history:[],progressAfter:null}}
+export function fresh(){return {version:1,settings:{...defaults,order:[...defaults.order]},history:[],progressAfter:null}}
 
 // Count complete exercises, never individual sets or sides. Daily progress is
 // separate from pass history: an interrupted pass still is not a completed pass.

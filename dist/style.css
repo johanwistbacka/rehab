@@ -110,3 +110,13 @@ dialog .dialog-image{height:auto;max-height:65vh;object-fit:contain;background:#
 
 .daily-counter{display:inline-block;font-size:13px;font-weight:650;color:var(--dark);background:#48766d12;border-radius:12px;padding:6px 10px;margin:10px 0 0;font-variant-numeric:tabular-nums}
 .session-view .daily-counter{margin:0 0 8px;padding:3px 8px;font-size:12px}
+
+.exercise-order{border:1px solid var(--line);border-radius:16px;margin:22px 0;padding:14px;min-width:0}
+.exercise-order legend{font-weight:650;padding:0 6px}
+.exercise-order ol{padding:0;margin:0 0 14px;list-style:none}
+.exercise-order-row{display:grid;grid-template-columns:minmax(0,1fr) 44px 44px;gap:6px;align-items:center;border-bottom:1px solid var(--line);padding:9px 0}
+.exercise-order-row .order-name{font-size:14px;overflow-wrap:anywhere}
+.exercise-order-row button{min-height:44px;padding:8px;border-radius:12px}
+.rest-presets{display:flex;flex-wrap:wrap;gap:6px}
+.rest-presets button{min-height:44px;font-size:13px;padding:8px 12px}
+.rest-presets button[aria-pressed=true]{background:var(--green);color:white}

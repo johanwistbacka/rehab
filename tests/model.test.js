@@ -4,3 +4,15 @@ test('second rounds apply only where prescribed',()=>{const p=plan({...defaults,
 test('progression changes one dimension and never exceeds prescribed ranges',()=>{let s={...defaults};let count=0;while(proposal(s)){const p=proposal(s);s[p.key]=p.value;count++;assert.ok(s.stretch<=60&&s.reps<=15&&s.lower<=5);assert.ok(count<20)}assert.equal(count,10);assert.equal(s.rounds,1)});
 test('three separate completed and followed-up days required, no automatic daily increase',()=>{const s=fresh();for(let i=1;i<=3;i++)s.history.push({at:`2026-10-0${i}T12:00:00Z`,day:`2026-10-0${i}`,signature:signature(s.settings),feel:'good',next:'good'});assert.equal(eligible(s,'2026-10-04'),true);s.history[2].next=null;assert.equal(eligible(s,'2026-10-04'),false);s.history[2].next='good';s.history[2].day='2026-10-02';assert.equal(eligible(s,'2026-10-04'),false);s.history[2].day='2026-10-03';s.progressAfter='2026-10-03T13:00:00Z';assert.equal(eligible(s,'2026-10-04'),false)});
 test('settings bounds and local calendar date',()=>{assert.equal(validSettings({stretch:1,reps:90,lower:20}).stretch,45);assert.equal(validSettings({reps:90}).reps,15);assert.equal(dayKey(new Date(2026,10,4,23,55)),'2026-11-04')});
+
+test('custom order includes every exercise with unchanged sets, sides and dose',()=>{
+  const order=[7,5,3,1,0,2,4,6],settings={...defaults,order};
+  const custom=plan(settings),original=plan(defaults);
+  assert.deepEqual([...new Set(custom.map(s=>s.ei))],order);
+  for(let ei=0;ei<8;ei++)assert.deepEqual(custom.filter(s=>s.ei===ei),original.filter(s=>s.ei===ei));
+});
+test('missing or malformed order falls back to the full original program',()=>{
+  for(const order of [undefined,null,[],[0,0,2,3,4,5,6,7],[7,6,5,4,3,2,1,9],['0',1,2,3,4,5,6,7]]){
+    assert.deepEqual([...new Set(plan({...defaults,order}).map(s=>s.ei))],[0,1,2,3,4,5,6,7]);
+  }
+});

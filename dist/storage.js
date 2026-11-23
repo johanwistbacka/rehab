@@ -10,7 +10,8 @@ const nonnegative = value => typeof value === 'number' && Number.isFinite(value)
 function checkedSettings(value) {
   if (!value || typeof value !== 'object') throw Error('Upplägget saknas i filen.');
   const settings = validSettings(value);
-  if (Object.keys(defaults).some(key => value[key] !== settings[key])) {
+  if (Object.keys(defaults).filter(key=>key!=='order').some(key => value[key] !== settings[key]) ||
+      (value.order !== undefined && (!Array.isArray(value.order) || value.order.length !== settings.order.length || value.order.some((ei,i)=>ei!==settings.order[i])))) {
     throw Error('Filen innehåller ett upplägg som inte stöds.');
   }
   return settings;
