@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {exercises} from '../dist/model.js';
-import {exercisePose,poseAssets} from '../dist/poses.js';
+import {exercisePose,poseAssets,poseOptions,allPoses} from '../dist/poses.js';
 
 test('all eight pose sheets exist, use WebP, and have valid frame selections',()=>{
   assert.equal(poseAssets.length,8);
@@ -37,4 +37,13 @@ test('manual squats show both positions together without inventing a movement ti
   assert.deepEqual(exercisePose(squat,'ready').frames,[0]);
   assert.deepEqual(exercisePose(squat,'manual').frames,[0,1]);
   assert.deepEqual(exercisePose(squat,'transition','manual').frames,[0,1]);
+});
+
+test('pose gallery provides every frame in order and individual named choices for each exercise',()=>{
+  for(const e of exercises){
+    const options=poseOptions(e),all=allPoses(e);
+    assert.equal(options.length,e.kind==='heel'?3:2);
+    assert.deepEqual(all.frames,options.map((_,i)=>i));
+    options.forEach((pose,i)=>{assert.deepEqual(pose.frames,[i]);assert.equal(pose.src,all.src);assert(pose.label.length>0)});
+  }
 });

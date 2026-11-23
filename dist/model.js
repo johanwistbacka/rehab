@@ -16,3 +16,22 @@ export function plan(s){const a=[];exercises.forEach((e,ei)=>{const sets=e.kind=
 export function proposal(s){if(s.stretch<60)return {key:'stretch',value:Math.min(60,s.stretch+5),label:`Stretch: ${s.stretch} → ${Math.min(60,s.stretch+5)} sekunder`};if(s.reps<15)return {key:'reps',value:s.reps+1,label:`Repetitioner per set: ${s.reps} → ${s.reps+1}`};if(s.lower<5)return {key:'lower',value:s.lower+1,label:`Tåhävning, sänkning: ${s.lower} → ${s.lower+1} sekunder`};return null}
 export function eligible(state,today=dayKey()){const h=state.history.filter(x=>x.signature===signature(state.settings)&&(!state.progressAfter||x.at>state.progressAfter));const days=new Set(h.filter(x=>x.feel==='good'&&x.next==='good'&&x.day<today).map(x=>x.day));return days.size>=3&&!!proposal(state.settings)}
 export function fresh(){return {version:1,settings:{...defaults},history:[],progressAfter:null}}
+
+// Count complete exercises, never individual sets or sides. Daily progress is
+// separate from pass history: an interrupted pass still is not a completed pass.
+export function dailyExerciseProgress(state,{active=null,completed=null,today=dayKey()}={}){
+  const done=new Set();
+  const stored=state.dailyExercises;
+  if(stored?.day===today&&Array.isArray(stored.done)){
+    for(const ei of stored.done)if(Number.isInteger(ei)&&ei>=0&&ei<exercises.length)done.add(ei);
+  }
+  if(state.history.some(record=>record.day===today)||completed?.day===today){
+    exercises.forEach((_,ei)=>done.add(ei));
+  }else if(active&&dayKey(new Date(active.started))===today){
+    const boundary=active.index+(active.phase==='done'?1:0);
+    active.steps.forEach((step,index)=>{
+      if(index<boundary&&!active.steps.slice(index+1).some(next=>next.ei===step.ei))done.add(step.ei);
+    });
+  }
+  return {day:today,done:[...done].sort((a,b)=>a-b),remaining:exercises.length-done.size};
+}

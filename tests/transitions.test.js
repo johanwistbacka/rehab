@@ -12,7 +12,7 @@ function boot(index=0){
   const session={settings:{...defaults},steps:plan(defaults),index,rep:1,phase:'ready'};
   const ctx=vm.createContext({session,remaining:0,duration:0,deadline:0,running:false,lastSecond:-1,timer:null,passPaused:false,soundAction:0,audioPreparing:false,
     performance:{now:()=>now},setInterval:()=>1,clearInterval(){},startClock(){},stopClock(){},cancelSoundTest(){},release(){},
-    persistDraft(){},renderSession(){},beep(){},step:()=>session.steps[session.index],
+    persistDraft(){},rememberCompletedExercises(){},renderSession(){},beep(){},step:()=>session.steps[session.index],
     $:()=>({style:{setProperty(){}},textContent:''}),window:{scrollTo(){}},
   });
   vm.runInContext(timerCode,ctx);

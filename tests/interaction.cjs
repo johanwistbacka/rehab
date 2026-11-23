@@ -2,13 +2,19 @@
 const {JSDOM}=require(process.env.REHAB_JSDOM_PATH||'jsdom');
 const fs=require('node:fs'),assert=require('node:assert/strict');
 const root=__dirname+'/../dist/';
-function boot({history,draft,failWrites=false,AudioContext}={}){
+function boot({history,draft,failWrites=false,AudioContext,badge}={}){
   const dom=new JSDOM(fs.readFileSync(root+'index.html','utf8'),{url:'https://example.com/',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;
   let clock=0,intervals=new Map(),id=0,hidden=false;
   w.scrollTo=()=>{};w.setInterval=fn=>{intervals.set(++id,fn);return id};w.clearInterval=id=>intervals.delete(id);
   Object.defineProperty(w.performance,'now',{value:()=>clock});
   Object.defineProperty(w.document,'hidden',{get:()=>hidden});
   if(AudioContext)w.AudioContext=AudioContext;
+  if(badge){
+    Object.defineProperty(w.navigator,'standalone',{value:true});
+    w.navigator.setAppBadge=async n=>badge.calls.push(n);w.navigator.clearAppBadge=async()=>badge.calls.push(0);
+    w.Notification=badge.notification;
+    if(badge.enabled)w.localStorage.setItem('rehab-johan-v1-icon-badge','true');
+  }
   // jsdom has no native dialog API; browser QA covers the modal itself.
   w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','')};
   w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');this.dispatchEvent(new w.Event('close'))};
@@ -16,7 +22,7 @@ function boot({history,draft,failWrites=false,AudioContext}={}){
   if(draft)w.localStorage.setItem('rehab-johan-v1-pass',draft);
   const originalSet=w.Storage.prototype.setItem;
   w.Storage.prototype.setItem=function(...args){if(failWrites)throw Error('Storage full');return originalSet.apply(this,args)};
-  const source=['model.js','storage.js','sound.js','poses.js','app.js'].map(name=>fs.readFileSync(root+name,'utf8').replace(/^import .*\n/gm,'').replaceAll('export ', '')).join('\n');
+  const source=['model.js','storage.js','sound.js','badge.js','poses.js','app.js'].map(name=>fs.readFileSync(root+name,'utf8').replace(/^import .*\n/gm,'').replaceAll('export ', '')).join('\n');
   w.eval(source+'\nglobalThis.hooks={get state(){return state},get session(){return session},get completed(){return completed},get running(){return running},get remaining(){return remaining},render,passTime,eligible};');
   return {w,d:w.document,h:w.hooks,click(id){const el=w.document.getElementById(id);assert.ok(el,'missing control '+id);el.click()},
     advance(ms){clock+=ms;[...intervals.values()].forEach(fn=>fn())},
@@ -38,6 +44,70 @@ function soundFixture(deferred=false){
 }
 async function main(){
   const {fresh}=await import('../dist/model.js');
+  {
+    const badge={enabled:true,calls:[],notification:{permission:'granted',async requestPermission(){throw Error('Must not prompt')}}};
+    const b=boot({badge});await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(badge.calls,[8]);
+    b.click('start');finish(b);await new Promise(resolve=>setImmediate(resolve));assert.equal(badge.calls.at(-1),0);
+    assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('0 av 8'));
+    const original=b.w.dayKey;b.w.dayKey=date=>date?original(date):'2099-01-01';b.advance(1000);await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(badge.calls.at(-1),8);b.close();
+    console.log('PASS: icon badge follows the daily counter, clears on completion and resets on the next open day without new prompts');
+  }
+  {
+    const badge={calls:[],notification:{permission:'default',requests:0,async requestPermission(){this.requests++;this.permission='granted';return 'granted'}}};
+    const b=boot({badge});assert.equal(badge.notification.requests,0);b.h.render('settings');
+    assert.equal(b.d.querySelector('#enable-badge').disabled,false);
+    const activation=b.d.querySelector('#enable-badge').onclick();assert.equal(badge.notification.requests,1);await activation;
+    assert.deepEqual(badge.calls,[8]);assert.equal(b.d.querySelector('#enable-badge').disabled,true);
+    await b.d.querySelector('#disable-badge').onclick();assert.deepEqual(badge.calls,[8,0]);assert.equal(b.w.localStorage.getItem('rehab-johan-v1-icon-badge'),'false');b.close();
+    const plain=boot();plain.h.render('settings');assert.equal(plain.d.querySelector('#enable-badge').disabled,true);assert.ok(plain.d.querySelector('#badge-status').textContent.includes('hemskärmen'));plain.close();
+    console.log('PASS: icon badge settings opt in only on click, sync daily count, disable and explain installation');
+  }
+  {
+    const state=fresh(),today=new Date(),key=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+    state.history=[{at:today.toISOString(),day:key}];
+    const b=boot({history:JSON.stringify(state)});assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('0 av 8'));assert.ok(b.d.querySelector('#start').disabled);
+    const original=b.w.dayKey;b.w.dayKey=date=>date?original(date):'2099-01-01';b.advance(1000);
+    assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));assert.equal(b.d.querySelector('#start').disabled,false);b.close();
+    console.log('PASS: open home resets the counter and re-enables today’s pass when the local day changes');
+  }
+  {
+    const b=boot();assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));
+    b.click('start');let guard=0;
+    while(!b.d.querySelector('[data-daily-count]').textContent.startsWith('7 av 8')){
+      assert.ok(++guard<150);
+      const phase=b.h.session.phase;
+      if(phase==='ready')b.click('go');else if(phase==='done')b.click('next');else b.advance(61000);
+    }
+    assert.equal(b.h.session.index,2);assert.equal(b.h.session.phase,'done');
+    b.click('cancel');b.click('confirm-cancel');assert.equal(b.h.state.history.length,0);
+    assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('7 av 8'));
+    const restored=boot({history:b.w.localStorage.getItem('rehab-johan-v1')});
+    assert.ok(restored.d.querySelector('[data-daily-count]').textContent.startsWith('7 av 8'));restored.close();b.close();
+    console.log('PASS: daily exercise count waits for every set, survives cancellation and reload, and does not complete pass history');
+  }
+  {
+    const b=boot();b.h.render('program');
+    assert.equal(b.d.querySelectorAll('[data-image]').length,8);
+    for(let i=0;i<8;i++){
+      b.d.querySelector(`[data-image="${i}"]`).click();
+      const expected=i===0?3:2;
+      assert.equal(b.d.querySelectorAll('#dialog-pose .pose-frame').length,expected);
+      assert.equal(b.d.querySelectorAll('#pose-controls [data-frame]').length,expected+1);
+      b.d.querySelector('#pose-controls [data-frame="1"]').click();
+      assert.equal(b.d.querySelectorAll('#dialog-pose .pose-frame').length,1);
+      assert.equal(b.d.querySelector('#pose-controls [data-frame="1"]').getAttribute('aria-pressed'),'true');
+      b.click('show-original');assert.equal(b.d.querySelector('#pose-controls').hidden,true);
+      b.click('show-original');assert.equal(b.d.querySelector('#pose-controls [data-frame="1"]').getAttribute('aria-pressed'),'true');
+      b.click('close-image');
+    }
+    b.h.render('home');b.click('start');b.click('go');b.advance(1000);b.advance(1000);
+    b.click('enlarge-image');const phase=b.h.session.phase,rep=b.h.session.rep;
+    b.d.querySelector('#pose-controls [data-frame="0"]').click();b.advance(10000);
+    assert.equal(b.h.running,false);assert.equal(b.h.session.phase,phase);assert.equal(b.h.session.rep,rep);
+    b.click('close-image');assert.equal(b.d.querySelector('#enlarge-image').dataset.pose,'2');b.close();
+    console.log('PASS: all eight galleries select poses, preserve selection across original comparison and do not alter training');
+  }
   {
     const b=boot();b.click('start');b.click('go');
     const info=()=>['#phase','#digits','#timer-unit','#count'].map(id=>b.d.querySelector(id).textContent).join('|')+'|'+b.d.querySelector('#enlarge-image').dataset.pose;

@@ -6,7 +6,7 @@ import {poseAssets} from '../dist/poses.js';
 const source = fileURLToPath(new URL('../dist/', import.meta.url));
 const target = fileURLToPath(new URL('../_site/', import.meta.url));
 const files = [
-  'index.html', 'style.css', 'app.js', 'model.js', 'storage.js', 'sound.js',
+  'index.html', 'style.css', 'app.js', 'model.js', 'storage.js', 'sound.js', 'badge.js',
   'poses.js', ...poseAssets, 'sw.js', 'icon.svg', 'manifest.json', 'assets/icon-192.png', 'assets/icon-512.png',
   ...Array.from({length:8}, (_, i) => `assets/exercise-${i}.png`),
   ...Array.from({length:8}, (_, i) => `assets/illustrations/1950s/exercise-${i}.png`)
