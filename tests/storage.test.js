@@ -41,15 +41,15 @@ test('completed questionnaire survives separately from an active session',()=>{
   assert.equal(restored.completed.id,completed.id);assert.equal(restored.completed.durationMs,123000);
 });
 test('duration estimate includes exactly the configured rests, and labels measured time',()=>{
-  assert.equal(estimatedSeconds(defaults),790);
-  assert.equal(estimatedSeconds({...defaults,rest:0}),670);
+  assert.equal(estimatedSeconds(defaults),1090);
+  assert.equal(estimatedSeconds({...defaults,rest:0}),970);
   assert.equal(estimatedSeconds({...defaults,rounds:2})-estimatedSeconds({...defaults,rounds:2,rest:0}),210);
   assert.equal(formatDuration(0),'0 s');assert.equal(formatDuration(124999),'2 min 4 s');
 });
 
 test('transition drafts preserve their destination and reject invalid timers or exercise phases',()=>{
   const transition=(index,nextPhase,overrides={})=>draft('transition',{session:{settings:{...defaults},index,rep:1,phase:'transition',nextPhase,started:'2026-11-04T12:00:00Z'},duration:1,remaining:650,...overrides});
-  for(const [index,nextPhase] of [[0,'up'],[0,'down'],[3,'hold'],[13,'manual']]){
+  for(const [index,nextPhase] of [[0,'up'],[0,'down'],[3,'hold'],[13,'squat']]){
     const restored=restoreDraft(transition(index,nextPhase));
     assert.equal(restored.session.nextPhase,nextPhase);assert.equal(restored.remaining,650);
   }
@@ -73,4 +73,25 @@ test('custom-order draft preserves exact exercise position and set rest, rejecti
   const raw={version:1,session:{settings,index:1,rep:1,phase:'rest',started:'2026-11-04T12:00:00Z'},duration:60,remaining:42000,elapsedMs:123000};
   const restored=restoreDraft(JSON.stringify(raw));assert.equal(restored.session.steps[1].ei,7);assert.equal(restored.remaining,42000);
   raw.session.settings.order=[0,0,2,3,4,5,6,7];assert.throws(()=>restoreDraft(JSON.stringify(raw)));
+});
+
+test('legacy manual squat drafts stay manual, timed drafts preserve the exact remaining repetition time',()=>{
+  const settings={...defaults};delete settings.squatSeconds;
+  const raw={version:1,session:{settings,index:13,rep:4,phase:'manual',started:'2026-11-04T12:00:00Z'},remaining:0,duration:0,elapsedMs:10000};
+  const old=restoreDraft(JSON.stringify(raw));assert.equal(old.session.settings.squatSeconds,0);assert.equal(old.session.phase,'manual');
+  raw.session.settings={...defaults};raw.session.phase='squat';raw.duration=10;raw.remaining=4200;
+  const timed=restoreDraft(JSON.stringify(raw));assert.equal(timed.session.rep,4);assert.equal(timed.remaining,4200);
+  raw.remaining=10001;assert.throws(()=>restoreDraft(JSON.stringify(raw)));
+});
+
+test('selected exercise drafts restore only their own sets and exact timer position',()=>{
+  const raw={version:1,session:{settings:{...defaults},exerciseIds:[1],index:1,rep:1,phase:'hold',started:'2026-11-04T12:00:00Z'},remaining:12345,duration:45,elapsedMs:60000};
+  const restored=restoreDraft(JSON.stringify(raw));
+  assert.deepEqual(restored.session.exerciseIds,[1]);assert.deepEqual(restored.session.steps,plan(defaults,[1]));
+  assert.equal(restored.session.steps[1].side,'Höger');assert.equal(restored.remaining,12345);
+  for(const selection of [[],[8],[1,1],null,'1']){
+    assert.throws(()=>restoreDraft(JSON.stringify({...raw,session:{...raw.session,exerciseIds:selection}})));
+  }
+  assert.throws(()=>restoreDraft(JSON.stringify({...raw,session:{...raw.session,index:2}})));
+  assert.equal(estimatedSeconds(defaults,[]),0);assert.equal(estimatedSeconds(defaults,[2]),46);
 });

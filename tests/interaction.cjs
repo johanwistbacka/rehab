@@ -45,6 +45,69 @@ function soundFixture(deferred=false){
 async function main(){
   const {fresh}=await import('../dist/model.js');
   {
+    const b=boot();b.d.querySelector('[data-start-exercise="2"]').click();b.click('go');b.advance(1000);b.advance(45000);
+    assert.equal(b.h.session.phase,'done');b.fail(true);b.click('next');assert.ok(b.h.session);assert.equal(b.h.session.index,0);assert.equal(b.h.session.phase,'done');
+    b.fail(false);b.click('next');assert.equal(b.h.session,null);assert.equal(b.d.querySelector('[data-start-exercise="2"]'),null);
+    b.fail(true);b.d.querySelector('[data-reopen-exercise="2"]').click();assert.equal(b.d.querySelector('[data-start-exercise="2"]'),null);
+    b.fail(false);b.d.querySelector('[data-reopen-exercise="2"]').click();assert.ok(b.d.querySelector('[data-start-exercise="2"]'));b.close();
+    console.log('PASS: storage failures retain the recoverable single-exercise draft and never silently reopen a completed exercise');
+  }
+  {
+    const b=boot();b.d.querySelector('[data-start-exercise="0"]').click();
+    assert.equal(b.h.session.steps.length,3);assert.ok(b.h.session.steps.every(s=>s.ei===0));
+    assert.ok(b.d.querySelector('.eyebrow').textContent.includes('Övning 1 av 1'));finish(b);
+    assert.equal(b.h.completed,null);assert.equal(b.h.state.history.length,0);assert.equal(b.draft(),null);
+    assert.equal(b.d.querySelector('[data-start-exercise="0"]'),null);assert.ok(b.d.querySelector('[data-reopen-exercise="0"]'));
+    assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('7 av 8'));
+    const stored=b.w.localStorage.getItem('rehab-johan-v1');const restored=boot({history:stored});
+    assert.equal(restored.d.querySelector('[data-start-exercise="0"]'),null);restored.click('start');
+    assert.ok(restored.h.session.steps.every(s=>s.ei!==0));assert.equal(new Set(restored.h.session.steps.map(s=>s.ei)).size,7);finish(restored);
+    assert.ok(restored.d.querySelector('[data-daily-count]').textContent.startsWith('0 av 8'));assert.ok(restored.d.querySelector('#start').disabled);
+    restored.d.querySelector('[data-reopen-exercise="0"]').click();assert.ok(restored.d.querySelector('[data-start-exercise="0"]'));
+    assert.ok(restored.d.querySelector('[data-daily-count]').textContent.startsWith('1 av 8'));restored.click('start');assert.ok(restored.h.session.steps.every(s=>s.ei===0));finish(restored);
+    assert.ok(restored.d.querySelector('[data-daily-count]').textContent.startsWith('0 av 8'));restored.close();b.close();
+    console.log('PASS: single exercise checks off only itself, stays removed after reload, is skipped by remaining sessions and can be added back manually');
+  }
+  {
+    const b=boot();b.d.querySelector('[data-start-exercise="1"]').click();b.click('go');b.advance(1000);b.advance(45000);
+    assert.equal(b.h.session.phase,'done');assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));
+    b.click('next');b.click('go');b.advance(1000);b.advance(12000);b.hidden(true);
+    const draft=b.draft(),stored=b.w.localStorage.getItem('rehab-johan-v1'),saved=JSON.parse(draft);
+    assert.deepEqual(saved.session.exerciseIds,[1]);assert.equal(saved.remaining,33000);
+    const restored=boot({history:stored,draft});assert.ok(restored.d.querySelector('[data-start-exercise="2"]').disabled);
+    restored.d.querySelector('[data-start-exercise="2"]').click();assert.equal(restored.h.session,null);
+    restored.click('resume-saved');assert.equal(restored.h.session.steps.length,2);assert.equal(restored.h.session.index,1);finish(restored);
+    assert.equal(restored.d.querySelector('[data-start-exercise="1"]'),null);assert.ok(restored.d.querySelector('[data-daily-count]').textContent.startsWith('7 av 8'));
+    restored.close();b.close();
+    console.log('PASS: both sides must finish; partial single-exercise drafts keep their selection, side and exact remaining time');
+  }
+  {
+    const state=fresh(),now=new Date();state.history=[{at:now.toISOString(),day:[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-')}];
+    const b=boot({history:JSON.stringify(state)});assert.ok(b.d.querySelector('#start').disabled);
+    b.d.querySelector('[data-reopen-exercise="2"]').click();assert.equal(b.d.querySelector('#start').disabled,false);
+    b.d.querySelector('[data-start-exercise="2"]').click();finish(b);assert.equal(b.h.state.history.length,1);assert.ok(b.d.querySelector('#start').disabled);
+    const key=b.w.dayKey;b.w.dayKey=date=>date?key(date):'2099-01-01';b.advance(1000);
+    assert.equal(b.d.querySelectorAll('[data-start-exercise]').length,8);b.close();
+    console.log('PASS: adding back works after a saved full pass without duplicating history, and all eight return on a new day');
+  }
+  {
+    const setup=fresh();setup.settings.order=[7,0,1,2,3,4,5,6];
+    const b=boot({history:JSON.stringify(setup)});b.click('start');b.click('go');
+    assert.equal(b.d.querySelector('#rep'),null);assert.equal(b.d.querySelector('#digits').textContent,'10');
+    b.advance(1000);assert.equal(b.h.session.phase,'squat');
+    b.advance(9999);assert.equal(b.h.session.rep,1);b.advance(1);assert.equal(b.h.session.rep,2);assert.equal(b.h.session.phase,'transition');
+    b.advance(1000);b.advance(3500);b.click('pause');const raw=b.draft();assert.equal(JSON.parse(raw).remaining,6500);
+    const restored=boot({history:JSON.stringify(setup),draft:raw});restored.click('resume-saved');restored.click('resume-pass');
+    restored.advance(6499);assert.equal(restored.h.session.rep,2);restored.advance(1);assert.equal(restored.h.session.rep,3);
+    for(let rep=3;rep<=10;rep++){restored.advance(1000);restored.advance(10000)}
+    assert.equal(restored.h.session.phase,'done');assert.equal(restored.h.session.rep,10);assert.equal(restored.h.session.index,0);
+    restored.click('next');assert.equal(restored.h.session.phase,'rest');assert.equal(restored.h.session.settings.rest,30);
+    restored.close();b.close();
+    const c=boot();c.h.render('settings');assert.equal(c.d.querySelector('[name=squatSeconds]').value,'10');
+    c.d.querySelector('[name=squatSeconds]').value='15';c.d.querySelector('#settings-form').dispatchEvent(new c.w.Event('submit',{cancelable:true}));assert.equal(c.h.state.settings.squatSeconds,15);c.close();
+    console.log('PASS: timed squats default to ten seconds, advance without clicks, resume exact remaining time, stop after ten repetitions and retain set rest');
+  }
+  {
     const state=fresh();state.settings.sound=true;
     const fixture=soundFixture(),raw={version:1,session:{settings:state.settings,index:1,rep:1,phase:'rest',started:new Date().toISOString()},remaining:30000,duration:30,elapsedMs:0};
     const b=boot({history:JSON.stringify(state),draft:JSON.stringify(raw),AudioContext:fixture.AudioContext});
@@ -272,7 +335,7 @@ async function main(){
     console.log('PASS: import previews, merges, requires opt-in for settings and rejects bad files');
   }
   {
-    const b=boot();b.click('start');let guards=0;while(b.h.session.steps[b.h.session.index].kind!=='squat'){assert.ok(++guards<1000);if(b.h.session.phase==='ready')b.click('go');else if(b.h.session.phase==='done')b.click('next');else b.advance(61000)}
+    const manual=fresh();manual.settings.squatSeconds=0;const b=boot({history:JSON.stringify(manual)});b.click('start');let guards=0;while(b.h.session.steps[b.h.session.index].kind!=='squat'){assert.ok(++guards<1000);if(b.h.session.phase==='ready')b.click('go');else if(b.h.session.phase==='done')b.click('next');else b.advance(61000)}
     b.click('go');b.advance(1000);b.click('rep');b.advance(1000);b.click('rep');b.advance(5000);const raw=b.draft();
     const restored=boot({draft:raw});restored.click('resume-saved');assert.equal(restored.h.session.phase,'manual');assert.equal(restored.h.session.rep,3);const time=restored.h.passTime();restored.advance(20000);assert.equal(restored.h.passTime(),time);restored.click('resume-pass');restored.click('rep');assert.equal(restored.h.session.rep,4);restored.close();b.close();
     console.log('PASS: manual squat repetition resumes without adding time away');

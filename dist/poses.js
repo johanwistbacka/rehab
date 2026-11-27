@@ -9,7 +9,7 @@ export function exercisePose(exercise,phase='ready',nextPhase){
     return {...base,frames:[index],label:['Grundläge','Upp på tå','Sänk hälarna'][index]};
   }
   if(exercise.kind==='squat'){
-    return {...base,frames:active==='manual'?[0,1]:[0],label:active==='manual'?'Stå → sänk → res dig i eget tempo':'Stående startläge'};
+    return {...base,frames:['manual','squat'].includes(active)?[0,1]:[0],label:active==='squat'?'Stå → sänk → res dig':active==='manual'?'Stå → sänk → res dig i eget tempo':'Stående startläge'};
   }
   const hold=active==='hold';
   return {...base,frames:[hold?1:0],label:hold?'Håll stretchpositionen':'Utgångsläge'};

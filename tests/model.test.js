@@ -16,3 +16,12 @@ test('missing or malformed order falls back to the full original program',()=>{
     assert.deepEqual([...new Set(plan({...defaults,order}).map(s=>s.ei))],[0,1,2,3,4,5,6,7]);
   }
 });
+
+test('selected exercise plans keep all prescribed sets and sides in configured order',()=>{
+  const settings={...defaults,rounds:2,order:[7,6,5,4,3,2,1,0]};
+  const full=plan(settings),selected=plan(settings,[1,7]);
+  assert.deepEqual(selected,full.filter(s=>[1,7].includes(s.ei)));
+  assert.equal(selected.filter(s=>s.ei===1).length,4);assert.equal(selected.filter(s=>s.ei===7).length,3);
+  assert.deepEqual(plan(settings,[]),[]);
+  for(const selection of [[8],[1,1],['1'],'1'])assert.throws(()=>plan(settings,selection));
+});

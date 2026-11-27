@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {fresh,defaults,plan,dailyExerciseProgress} from '../dist/model.js';
+import {fresh,defaults,plan,dailyExerciseProgress,remainingExerciseIds} from '../dist/model.js';
 const today='2026-11-23';
 function active(index,phase='ready',settings=defaults){return {steps:plan(settings),index,phase,started:today+'T12:00:00',settings}}
 const count=(state=fresh(),options={})=>dailyExerciseProgress(state,{today,...options});
@@ -40,4 +40,16 @@ test('daily count tracks exercise identity when the pass order changes',()=>{
   const settings={...defaults,order:[7,6,5,4,3,2,1,0]};
   const progress=count(fresh(),{active:active(2,'done',settings)});
   assert.deepEqual(progress.done,[7]);assert.equal(progress.remaining,7);
+});
+
+test('manual re-adding overrides daily completion while preserving the other seven exercises',()=>{
+  const state={...fresh(),history:[{day:today}],dailyExercises:{day:today,done:[0,1,2,3,4,5,6,7],reopened:[3]}};
+  assert.equal(count(state).remaining,1);assert.deepEqual(remainingExerciseIds(state,{today}),[3]);
+  assert.equal(count(state,{today:'2026-11-24'}).remaining,8);
+  state.dailyExercises.reopened=[];assert.equal(count(state).remaining,0);
+});
+test('a finished single exercise only checks off that exercise, never the rest of the program',()=>{
+  const selected={settings:defaults,steps:plan(defaults,[1]),exerciseIds:[1],started:today+'T12:00:00',index:0,phase:'done'};
+  assert.equal(count(fresh(),{active:selected}).remaining,8);
+  selected.index=1;assert.deepEqual(count(fresh(),{active:selected}).done,[1]);
 });

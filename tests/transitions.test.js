@@ -50,3 +50,13 @@ test('squat preparation returns to manual pace and never advances a repetition o
   advance(1000);assert.equal(c.session.phase,'manual');assert.equal(c.running,false);
   advance(60000);assert.equal(c.session.rep,1);assert.equal(c.session.phase,'manual');
 });
+
+test('timed squats get a full preparation second followed by ten active seconds per repetition',()=>{
+  const {ctx:c,advance}=boot(plan(defaults).findIndex(s=>s.kind==='squat'));c.begin('squat');
+  for(let rep=1;rep<=10;rep++){
+    assert.equal(c.session.rep,rep);assert.equal(c.session.phase,'transition');
+    advance(1000);assert.equal(c.session.phase,'squat');assert.equal(c.duration,10);
+    advance(9999);assert.equal(c.session.rep,rep);advance(1);
+  }
+  assert.equal(c.session.phase,'done');
+});

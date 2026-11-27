@@ -1,7 +1,7 @@
 import {defaults, validSettings, signature, plan, dayKey} from './model.js';
 
 const feelings = ['good', 'hard', 'pain'];
-const timedPhases = ['up', 'down', 'hold', 'rest', 'transition'];
+const timedPhases = ['up', 'down', 'hold', 'rest', 'squat', 'transition'];
 const validDate = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const validDay = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   validDate(value + 'T12:00:00') && dayKey(new Date(value + 'T12:00:00')) === value;
@@ -9,8 +9,9 @@ const nonnegative = value => typeof value === 'number' && Number.isFinite(value)
 
 function checkedSettings(value) {
   if (!value || typeof value !== 'object') throw Error('Upplägget saknas i filen.');
-  const settings = validSettings(value);
-  if (Object.keys(defaults).filter(key=>key!=='order').some(key => value[key] !== settings[key]) ||
+  // Old snapshots used manually confirmed squats; preserve that behavior.
+  const settings = validSettings(value.squatSeconds===undefined?{...value,squatSeconds:0}:value);
+  if (Object.keys(defaults).filter(key=>key!=='order'&&(key!=='squatSeconds'||value.squatSeconds!==undefined)).some(key => value[key] !== settings[key]) ||
       (value.order !== undefined && (!Array.isArray(value.order) || value.order.length !== settings.order.length || value.order.some((ei,i)=>ei!==settings.order[i])))) {
     throw Error('Filen innehåller ett upplägg som inte stöds.');
   }
@@ -68,25 +69,27 @@ export function restoreDraft(text) {
   if (value.completed) return {completed: checkedRecord(value.completed, true)};
   const raw = value.session;
   if (!raw || !validDate(raw.started) || !nonnegative(value.elapsedMs)) throw Error('Passet kunde inte läsas.');
-  const settings = checkedSettings(raw.settings), steps = plan(settings);
+  const settings = checkedSettings(raw.settings);
+  if(raw.exerciseIds!==undefined&&(!Array.isArray(raw.exerciseIds)||raw.exerciseIds.length===0))throw Error('Felaktigt övningsval.');
+  const steps = plan(settings,raw.exerciseIds??null);
   if (!Number.isInteger(raw.index) || raw.index < 0 || raw.index >= steps.length ||
       !Number.isInteger(raw.rep) || raw.rep < 1 || raw.rep > settings.reps) throw Error('Felaktig passposition.');
   const step = steps[raw.index];
-  const phases = ['ready', 'done', 'rest', 'transition', ...(step.kind === 'heel' ? ['up', 'down'] : step.kind === 'stretch' ? ['hold'] : ['manual'])];
+  const phases = ['ready', 'done', 'rest', 'transition', ...(step.kind === 'heel' ? ['up', 'down'] : step.kind === 'stretch' ? ['hold'] : settings.squatSeconds>0?['squat']:['manual'])];
   if (!phases.includes(raw.phase)) throw Error('Felaktig passfas.');
-  if (raw.phase === 'transition' && !(step.kind === 'heel' ? ['up','down'] : step.kind === 'stretch' ? ['hold'] : ['manual']).includes(raw.nextPhase)) throw Error('Felaktigt nästa steg.');
+  if (raw.phase === 'transition' && !(step.kind === 'heel' ? ['up','down'] : step.kind === 'stretch' ? ['hold'] : settings.squatSeconds>0?['squat']:['manual']).includes(raw.nextPhase)) throw Error('Felaktigt nästa steg.');
   if (timedPhases.includes(raw.phase)) {
-    const expected = ['up', 'transition'].includes(raw.phase) ? 1 : raw.phase === 'down' ? settings.lower : raw.phase === 'hold' ? settings.stretch : settings.rest;
+    const expected = ['up', 'transition'].includes(raw.phase) ? 1 : raw.phase === 'down' ? settings.lower : raw.phase === 'hold' ? settings.stretch : raw.phase === 'squat' ? settings.squatSeconds : settings.rest;
     if (value.duration !== expected || !nonnegative(value.remaining) || value.remaining > expected * 1000) throw Error('Felaktig timer.');
   }
-  return {session: {settings, steps, index: raw.index, rep: raw.rep, phase: raw.phase, ...(raw.phase === 'transition' ? {nextPhase: raw.nextPhase} : {}), started: raw.started},
+  return {session: {settings, steps, ...(raw.exerciseIds===undefined?{}:{exerciseIds:[...raw.exerciseIds]}), index: raw.index, rep: raw.rep, phase: raw.phase, ...(raw.phase === 'transition' ? {nextPhase: raw.nextPhase} : {}), started: raw.started},
     remaining: value.remaining ?? 0, duration: value.duration ?? 0, elapsedMs: value.elapsedMs};
 }
 
-export function estimatedSeconds(settings) {
-  const steps = plan(settings);
+export function estimatedSeconds(settings,selection=null) {
+  const steps = plan(settings,selection);
   return steps.reduce((total, step, index) => total +
-    (step.kind === 'stretch' ? step.seconds + 1 : step.kind === 'heel' ? step.reps * (1 + step.lower + 2) : step.reps) +
+    (step.kind === 'stretch' ? step.seconds + 1 : step.kind === 'heel' ? step.reps * (1 + step.lower + 2) : step.reps * (1 + step.squatSeconds)) +
     (index > 0 && steps[index - 1].ei === step.ei && steps[index - 1].set !== step.set ? settings.rest : 0), 0);
 }
 

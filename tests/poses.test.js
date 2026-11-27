@@ -47,3 +47,8 @@ test('pose gallery provides every frame in order and individual named choices fo
     options.forEach((pose,i)=>{assert.deepEqual(pose.frames,[i]);assert.equal(pose.src,all.src);assert(pose.label.length>0)});
   }
 });
+
+test('timed squats show both positions through preparation and movement',()=>{
+  assert.deepEqual(exercisePose(exercises[7],'squat').frames,[0,1]);
+  assert.deepEqual(exercisePose(exercises[7],'transition','squat'),exercisePose(exercises[7],'squat'));
+});
