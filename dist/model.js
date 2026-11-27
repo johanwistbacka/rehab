@@ -35,8 +35,9 @@ export function dailyExerciseProgress(state,{active=null,completed=null,today=da
     exercises.forEach((_,ei)=>done.add(ei));
   }else if(active&&dayKey(new Date(active.started))===today){
     const boundary=active.index+(active.phase==='done'?1:0);
+    const skipped=new Set(Array.isArray(active.skippedExerciseIds)?active.skippedExerciseIds:[]);
     active.steps.forEach((step,index)=>{
-      if(index<boundary&&!active.steps.slice(index+1).some(next=>next.ei===step.ei))done.add(step.ei);
+      if(!skipped.has(step.ei)&&index<boundary&&!active.steps.slice(index+1).some(next=>next.ei===step.ei))done.add(step.ei);
     });
   }
   if(stored?.day===today&&Array.isArray(stored.reopened))for(const ei of stored.reopened)done.delete(ei);

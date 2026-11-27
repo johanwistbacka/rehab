@@ -53,3 +53,8 @@ test('a finished single exercise only checks off that exercise, never the rest o
   assert.equal(count(fresh(),{active:selected}).remaining,8);
   selected.index=1;assert.deepEqual(count(fresh(),{active:selected}).done,[1]);
 });
+
+test('skipped exercises never become completed just because the session index passed them',()=>{
+  const state=fresh(),session=active(4,'done');session.skippedExerciseIds=[0];
+  const progress=count(state,{active:session});assert.deepEqual(progress.done,[1]);assert.equal(progress.remaining,7);
+});

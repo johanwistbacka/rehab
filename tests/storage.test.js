@@ -95,3 +95,9 @@ test('selected exercise drafts restore only their own sets and exact timer posit
   assert.throws(()=>restoreDraft(JSON.stringify({...raw,session:{...raw.session,index:2}})));
   assert.equal(estimatedSeconds(defaults,[]),0);assert.equal(estimatedSeconds(defaults,[2]),46);
 });
+
+test('skipped exercise IDs survive draft recovery and must refer only to earlier exercises',()=>{
+  const raw={version:1,session:{settings:{...defaults},exerciseIds:[0,1],skippedExerciseIds:[0],index:3,rep:1,phase:'ready',started:'2026-11-04T12:00:00Z'},remaining:0,duration:0,elapsedMs:5000};
+  const restored=restoreDraft(JSON.stringify(raw));assert.deepEqual(restored.session.skippedExerciseIds,[0]);assert.equal(restored.session.steps[restored.session.index].ei,1);
+  for(const skipped of [[0,0],[1],[8],['0'],'0'])assert.throws(()=>restoreDraft(JSON.stringify({...raw,session:{...raw.session,skippedExerciseIds:skipped}})));
+});

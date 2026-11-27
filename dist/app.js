@@ -243,7 +243,7 @@ function persistDraft(){
   try{
     if(completed)localStorage.setItem(DRAFT_KEY,JSON.stringify({version:1,completed}));
     else if(session)localStorage.setItem(DRAFT_KEY,JSON.stringify({version:1,
-      session:{settings:session.settings,...(session.exerciseIds?{exerciseIds:session.exerciseIds}:{}),index:session.index,rep:session.rep,phase:session.phase,...(session.phase==='transition'?{nextPhase:session.nextPhase}:{}),started:session.started},
+      session:{settings:session.settings,...(session.skippedExerciseIds?.length?{skippedExerciseIds:session.skippedExerciseIds}:{}),...(session.exerciseIds?{exerciseIds:session.exerciseIds}:{}),index:session.index,rep:session.rep,phase:session.phase,...(session.phase==='transition'?{nextPhase:session.nextPhase}:{}),started:session.started},
       remaining:running?Math.max(0,deadline-performance.now()):remaining,duration,elapsedMs:passTime()}));
     else return clearDraft();
     return true;
@@ -317,23 +317,27 @@ function renderSession(){
   $('#nav').hidden=true;app.classList.add('session-view');
   const displayPhase=session.phase==='transition'?session.nextPhase:session.phase;
   const phase=passPaused?'Pausat':{ready:'Gör dig redo',up:'Upp',down:'Sänk långsamt',hold:'Håll kvar',manual:'Ditt eget tempo',squat:'En hel knäböj',rest:'Vila',done:'Bra, den delen är klar'}[displayPhase];
-  const finished=session.index+(session.phase==='done'?1:0);
+  const skipped=session.skippedExerciseIds??[];
+  const finished=session.steps.slice(0,session.index+(session.phase==='done'?1:0)).filter(t=>!skipped.includes(t.ei)).length;
+  const exerciseDone=session.phase==='done'&&next?.ei!==t.ei;
   app.innerHTML=heading(`Övning ${[...new Set(session.steps.map(s=>s.ei))].indexOf(t.ei)+1} av ${new Set(session.steps.map(s=>s.ei)).size}`,e.name)+dailyCounter()+`
     <div class="row wrap"><span class="pill">${t.side?t.side+' · ':''}${t.kind==='stretch'?`Omgång ${t.set} av ${t.sets}`:`Set ${t.set} av ${t.sets}`}</span><span class="note">Del ${session.index+1} av ${session.steps.length}</span></div>
     <div class="progressbar" role="progressbar" aria-label="Passets framsteg" aria-valuemin="0" aria-valuemax="${session.steps.length}" aria-valuenow="${finished}"><i style="width:${100*finished/session.steps.length}%"></i></div>
     <div class="session-workspace">${imageButton(e,true)}<section class="timer"><p class="phase" id="phase" role="status">${phase}</p><div class="ring"><div class="ring-inner" role="timer" aria-live="off"><strong id="digits">${session.phase==='ready'?(t.kind==='stretch'?t.seconds:t.kind==='squat'&&session.settings.squatSeconds>0?session.settings.squatSeconds:t.reps):t.kind==='squat'&&session.phase==='manual'?session.rep:'—'}</strong><span id="timer-unit">${t.kind==='squat'?(session.settings.squatSeconds>0?'sekunder':'repetitioner'):session.phase==='ready'&&t.kind==='heel'?'repetitioner':'sekunder'}</span></div></div><p class="muted" id="count">${t.kind==='stretch'?'Andas lugnt':`Repetition ${session.rep} av ${t.reps}`}</p></section></div>
     <div class="session-primary" id="session-controls">${controls()}</div>
-    <div class="session-meta"><p class="note">Passtid <strong id="elapsed">${formatDuration(passTime())}</strong></p><p class="note">${next?'Nästa: '+partLabel(next):(session.exerciseIds?.length??8)<8?'Sista delen av de valda övningarna':'Sista delen · sedan följer du upp passet'}</p></div>
+    <div class="session-meta"><p class="note">Passtid <strong id="elapsed">${formatDuration(passTime())}</strong></p><p class="note">${next?'Nästa: '+partLabel(next):((session.exerciseIds?.length??8)<8||session.skippedExerciseIds?.length)?'Sista delen av de valda övningarna':'Sista delen · sedan följer du upp passet'}</p></div>
+    ${exerciseDone?'':`<div class="session-skip">${button('skip-exercise','Hoppa över övningen')}</div>`}
     <div class="exercise-guide"><details class="session-instructions"><summary>Så gör du</summary><p>${e.text}</p><p class="note">${e.dose}</p>${e.side?'<p class="note">Bilden visar positionen som exempel. Följ passets sidangivelse för vilket ben du ska träna.</p>':''}${e.video?`<a href="${esc(e.video)}" target="_blank" rel="noopener">Visa originalvideo ↗</a>`:''}</details></div>
     <details class="session-options"><summary>Fler alternativ och ljud</summary>${soundControls()}<div class="actions wrap">${!passPaused&&!running?button('pause-break','Pausa passet'):''}${button('cancel','Avbryt pass','danger')}</div></details>
     <div id="cancel-prompt">${cancelPrompt?`<div class="card"><p>Avbryta passet? Det räknas då inte som genomfört.</p><div class="actions">${button('confirm-cancel','Ja, avbryt','danger')}${button('keep','Stanna kvar')}</div></div>`:''}</div>
     ${imageDialog()}`;
   bindSession();paint();iconBadge.sync(dailyProgress().remaining);
 }
-function controls(){if(passPaused)return button('resume-pass','Fortsätt passet','primary');if(session.phase==='ready')return button('go',session.index?'Starta nästa del':'Starta övningen','primary');if(session.phase==='done')return button('next',session.index===session.steps.length-1?((session.exerciseIds?.length??8)===8?'Avsluta och följ upp':'Till dagens övningar'):'Fortsätt →','primary');if(session.phase==='manual')return `${button('rep',`Klar med repetition ${session.rep}`,'primary')}<p class="note">Tryck efter varje knäböj. Ingen tid är föreskriven i PDF:en.</p>`;return button('pause',running?'Pausa':'Fortsätt','primary')}
+function controls(){if(passPaused)return button('resume-pass','Fortsätt passet','primary');if(session.phase==='ready')return button('go',session.index?'Starta nästa del':'Starta övningen','primary');if(session.phase==='done')return button('next',session.index===session.steps.length-1?((session.exerciseIds?.length??8)===8&&!session.skippedExerciseIds?.length?'Avsluta och följ upp':'Till dagens övningar'):'Fortsätt →','primary');if(session.phase==='manual')return `${button('rep',`Klar med repetition ${session.rep}`,'primary')}<p class="note">Tryck efter varje knäböj. Ingen tid är föreskriven i PDF:en.</p>`;return button('pause',running?'Pausa':'Fortsätt','primary')}
 function bindSession(){
   bindImages();bindSoundControls();const on=(id,f)=>{if($('#'+id))$('#'+id).onclick=f};
   on('pause-break',pause);
+  on('skip-exercise',skipExercise);
   on('resume-pass',()=>runWithSound(()=>{passPaused=false;wake();startClock();if(['up','down','hold','rest','squat','transition'].includes(session.phase))resume();else{persistDraft();renderSession()}}));
   on('go',()=>runWithSound(()=>{startClock();wake();if(step().kind==='squat')begin(session.settings.squatSeconds>0?'squat':'manual');else begin(step().kind==='heel'?'up':'hold',step().kind==='heel'?1:step().seconds)}));
   on('pause',()=>{if(running)pause();else return runWithSound(()=>{wake();resume()})});
@@ -342,6 +346,22 @@ function bindSession(){
   on('cancel',()=>{pause();cancelPrompt=true;renderSession()});
   on('keep',()=>{cancelPrompt=false;renderSession()});
   on('confirm-cancel',()=>{if(!clearDraft())return;clearInterval(timer);running=false;stopClock();cancelSoundTest();soundAction++;audioPreparing=false;session=null;passPaused=false;release();render('home')});
+}
+function skipExercise(){
+  if(!session)return;
+  const ei=step().ei,next=session.steps.findIndex((t,index)=>index>session.index&&t.ei!==ei);
+  if(session.phase==='done'&&session.steps[session.index+1]?.ei!==ei)return;
+  pause();
+  const old={index:session.index,rep:session.rep,phase:session.phase,nextPhase:session.nextPhase,skippedExerciseIds:session.skippedExerciseIds};
+  session.skippedExerciseIds=[...new Set([...(session.skippedExerciseIds??[]),ei])];
+  if(next<0){
+    if(!save()||!clearDraft()){Object.assign(session,old);renderSession();return}
+    stopClock();release();session=null;passPaused=false;cancelPrompt=false;render('home');
+    notice('Övningen hoppades över och finns kvar bland dagens återstående.');window.scrollTo(0,0);return;
+  }
+  session.index=next;session.rep=1;session.phase='ready';delete session.nextPhase;
+  if(!persistDraft()){Object.assign(session,old);renderSession();return}
+  cancelPrompt=false;passPaused=false;startClock();renderSession();window.scrollTo(0,0);
 }
 // A persisted timed phase keeps the one-second cue readable and resumable.
 function begin(phase,seconds){
@@ -363,7 +383,7 @@ function paint(){if(!session)return;if(session.phase==='transition'){const targe
 function tick(){if(!session||!running)return;if(performance.now()>=deadline){running=false;clearInterval(timer);remaining=0;if(session.phase==='transition')finishTransition();else if(session.phase==='up')begin('down',step().lower);else if(session.phase==='down'&&session.rep<step().reps){session.rep++;begin('up',1)}else if(session.phase==='squat'&&session.rep<step().reps){session.rep++;begin('squat')}else if(session.phase==='rest'){session.phase='ready';persistDraft();renderSession();beep('restEnd')}else finishPart()}else{const second=Math.ceil(Math.max(0,deadline-performance.now())/1000);if(second!==lastSecond){lastSecond=second;if(['up','down','hold','rest','squat'].includes(session.phase)&&second>0)beep(session.phase+'Tick')}paint()}}
 function finishPart(){running=false;clearInterval(timer);session.phase='done';rememberCompletedExercises();persistDraft();release();beep('complete');renderSession()}
 function nextPart(){startClock();const old=step();session.index++;session.rep=1;if(session.index>=session.steps.length){
-    if((session.exerciseIds?.length??8)<8){
+    if((session.exerciseIds?.length??8)<8||session.skippedExerciseIds?.length){
       if(!save()||!clearDraft()){session.index--;session.phase='done';persistDraft();renderSession();return}
       stopClock();release();session=null;passPaused=false;render('home');window.scrollTo(0,0);return;
     }

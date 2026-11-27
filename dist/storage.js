@@ -74,6 +74,10 @@ export function restoreDraft(text) {
   const steps = plan(settings,raw.exerciseIds??null);
   if (!Number.isInteger(raw.index) || raw.index < 0 || raw.index >= steps.length ||
       !Number.isInteger(raw.rep) || raw.rep < 1 || raw.rep > settings.reps) throw Error('Felaktig passposition.');
+  if(raw.skippedExerciseIds!==undefined){
+    const skipped=raw.skippedExerciseIds;
+    if(!Array.isArray(skipped)||new Set(skipped).size!==skipped.length||skipped.some(ei=>!Number.isInteger(ei)||!steps.some(step=>step.ei===ei)||steps.findLastIndex(step=>step.ei===ei)>=raw.index))throw Error('Felaktiga överhoppade övningar.');
+  }
   const step = steps[raw.index];
   const phases = ['ready', 'done', 'rest', 'transition', ...(step.kind === 'heel' ? ['up', 'down'] : step.kind === 'stretch' ? ['hold'] : settings.squatSeconds>0?['squat']:['manual'])];
   if (!phases.includes(raw.phase)) throw Error('Felaktig passfas.');
@@ -82,7 +86,7 @@ export function restoreDraft(text) {
     const expected = ['up', 'transition'].includes(raw.phase) ? 1 : raw.phase === 'down' ? settings.lower : raw.phase === 'hold' ? settings.stretch : raw.phase === 'squat' ? settings.squatSeconds : settings.rest;
     if (value.duration !== expected || !nonnegative(value.remaining) || value.remaining > expected * 1000) throw Error('Felaktig timer.');
   }
-  return {session: {settings, steps, ...(raw.exerciseIds===undefined?{}:{exerciseIds:[...raw.exerciseIds]}), index: raw.index, rep: raw.rep, phase: raw.phase, ...(raw.phase === 'transition' ? {nextPhase: raw.nextPhase} : {}), started: raw.started},
+  return {session: {settings, steps, ...(raw.skippedExerciseIds===undefined?{}:{skippedExerciseIds:[...raw.skippedExerciseIds]}), ...(raw.exerciseIds===undefined?{}:{exerciseIds:[...raw.exerciseIds]}), index: raw.index, rep: raw.rep, phase: raw.phase, ...(raw.phase === 'transition' ? {nextPhase: raw.nextPhase} : {}), started: raw.started},
     remaining: value.remaining ?? 0, duration: value.duration ?? 0, elapsedMs: value.elapsedMs};
 }
 

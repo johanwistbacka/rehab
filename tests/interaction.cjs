@@ -45,6 +45,43 @@ function soundFixture(deferred=false){
 async function main(){
   const {fresh}=await import('../dist/model.js');
   {
+    const b=boot();b.click('start');b.click('go');b.advance(1000);assert.equal(b.h.running,true);
+    b.click('skip-exercise');assert.equal(b.h.running,false);assert.equal(b.h.session.steps[b.h.session.index].ei,1);assert.equal(b.h.session.phase,'ready');
+    assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));b.advance(60000);assert.equal(b.h.session.phase,'ready');
+    const raw=b.draft();assert.deepEqual(JSON.parse(raw).session.skippedExerciseIds,[0]);
+    const restored=boot({draft:raw,history:b.w.localStorage.getItem('rehab-johan-v1')});restored.click('resume-saved');
+    assert.ok(restored.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));finish(restored);
+    assert.equal(restored.h.completed,null);assert.equal(restored.h.state.history.length,0);assert.ok(restored.d.querySelector('[data-start-exercise="0"]'));
+    assert.ok(restored.d.querySelector('[data-daily-count]').textContent.startsWith('1 av 8'));restored.close();b.close();
+    console.log('PASS: skip stops the old timer, bypasses all sets, survives reload and leaves the exercise undone without full-pass credit');
+  }
+  {
+    const b=boot();b.d.querySelector('[data-start-exercise="1"]').click();assert.equal(b.h.session.steps.length,2);
+    b.click('skip-exercise');assert.equal(b.h.session,null);assert.equal(b.h.completed,null);assert.equal(b.draft(),null);
+    assert.ok(b.d.querySelector('[data-start-exercise="1"]'));assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));b.close();
+    console.log('PASS: skipping a single exercise bypasses both sides and returns to the daily list');
+  }
+  {
+    const b=boot();b.click('start');let guard=0;while(b.h.session.phase!=='done'){
+      assert.ok(++guard<100);if(b.h.session.phase==='ready')b.click('go');else b.advance(61000);
+    }
+    assert.equal(b.h.session.index,0);b.click('skip-exercise');assert.equal(b.h.session.steps[b.h.session.index].ei,1);
+    assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));b.close();
+    const last=boot();last.click('start');guard=0;
+    while(last.h.session.steps[last.h.session.index].ei!==7){
+      assert.ok(++guard<1500);const phase=last.h.session.phase;if(phase==='ready')last.click('go');else if(phase==='done')last.click('next');else last.advance(61000);
+    }
+    last.click('skip-exercise');assert.equal(last.h.session,null);assert.equal(last.h.completed,null);assert.equal(last.h.state.history.length,0);
+    assert.ok(last.d.querySelector('[data-start-exercise="7"]'));assert.ok(last.d.querySelector('[data-daily-count]').textContent.startsWith('1 av 8'));last.close();
+    console.log('PASS: skipping after a partial set or at the final exercise preserves correct daily completion');
+  }
+  {
+    const b=boot();b.click('start');b.click('go');b.advance(1000);b.fail(true);b.click('skip-exercise');
+    assert.equal(b.h.session.index,0);assert.equal(b.h.running,false);assert.equal(b.h.session.skippedExerciseIds,undefined);
+    b.fail(false);b.click('skip-exercise');assert.equal(b.h.session.steps[b.h.session.index].ei,1);b.close();
+    console.log('PASS: failed skip persistence keeps the original exercise paused and recoverable');
+  }
+  {
     const b=boot();b.d.querySelector('[data-start-exercise="2"]').click();b.click('go');b.advance(1000);b.advance(45000);
     assert.equal(b.h.session.phase,'done');b.fail(true);b.click('next');assert.ok(b.h.session);assert.equal(b.h.session.index,0);assert.equal(b.h.session.phase,'done');
     b.fail(false);b.click('next');assert.equal(b.h.session,null);assert.equal(b.d.querySelector('[data-start-exercise="2"]'),null);
