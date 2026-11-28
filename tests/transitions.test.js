@@ -27,14 +27,13 @@ test('heel raises get a full preparation second before each movement without sho
     advance(1000);assert.equal(c.session.phase,'down');assert.equal(c.duration,defaults.lower);
     advance(defaults.lower*1000);
   }
-  assert.equal(c.session.phase,'done');
-  c.nextPart();assert.equal(c.session.phase,'rest');assert.equal(c.duration,defaults.rest);
-  advance(defaults.rest*1000);assert.equal(c.session.phase,'ready');
+  assert.equal(c.session.phase,'rest');assert.equal(c.session.index,1);assert.equal(c.duration,defaults.rest);
+  advance(defaults.rest*1000);assert.equal(c.session.phase,'transition');assert.equal(c.session.nextPhase,'up');
 });
 test('all six stretch exercises prepare for one second and retain their complete hold time',()=>{
   const steps=plan(defaults);
   for(let ei=1;ei<=6;ei++){
-    const {ctx:c,advance}=boot(steps.findIndex(s=>s.ei===ei));c.begin('hold',defaults.stretch);
+    const {ctx:c,advance}=boot(steps.findLastIndex(s=>s.ei===ei));c.begin('hold',defaults.stretch);
     advance(999);assert.equal(c.session.phase,'transition');advance(1);assert.equal(c.session.phase,'hold');
     advance(defaults.stretch*1000-1);assert.equal(c.session.phase,'hold');advance(1);assert.equal(c.session.phase,'done');
   }
@@ -51,12 +50,24 @@ test('squat preparation returns to manual pace and never advances a repetition o
   advance(60000);assert.equal(c.session.rep,1);assert.equal(c.session.phase,'manual');
 });
 
-test('timed squats get a full preparation second followed by ten active seconds per repetition',()=>{
+test('all squat sets and rests run automatically, then wait for one next-exercise click',()=>{
   const {ctx:c,advance}=boot(plan(defaults).findIndex(s=>s.kind==='squat'));c.begin('squat');
-  for(let rep=1;rep<=10;rep++){
-    assert.equal(c.session.rep,rep);assert.equal(c.session.phase,'transition');
-    advance(1000);assert.equal(c.session.phase,'squat');assert.equal(c.duration,10);
-    advance(9999);assert.equal(c.session.rep,rep);advance(1);
+  for(let set=1;set<=3;set++){
+    for(let rep=1;rep<=10;rep++){
+      assert.equal(c.session.rep,rep);assert.equal(c.session.phase,'transition');
+      advance(1000);assert.equal(c.session.phase,'squat');assert.equal(c.duration,10);
+      advance(9999);assert.equal(c.session.rep,rep);advance(1);
+    }
+    if(set<3){assert.equal(c.session.phase,'rest');advance(30000);assert.equal(c.session.phase,'transition')}
   }
-  assert.equal(c.session.phase,'done');
+  assert.equal(c.session.phase,'done');assert.equal(c.running,false);
+});
+test('side changes and set changes with zero rest start the next part automatically',()=>{
+  const steps=plan(defaults),index=steps.findIndex(s=>s.ei===1),{ctx:c,advance}=boot(index);
+  c.begin('hold');advance(1000);advance(45000);
+  assert.equal(c.session.index,index+1);assert.equal(c.session.phase,'transition');
+  advance(1000);assert.equal(c.session.phase,'hold');advance(45000);assert.equal(c.session.phase,'done');
+  const noRest=boot();noRest.ctx.session.settings.rest=0;noRest.ctx.begin('up');
+  for(let i=0;i<10;i++){noRest.advance(1000);noRest.advance(1000);noRest.advance(1000);noRest.advance(3000)}
+  assert.equal(noRest.ctx.session.index,1);assert.equal(noRest.ctx.session.phase,'transition');
 });

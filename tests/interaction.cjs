@@ -45,9 +45,42 @@ function soundFixture(deferred=false){
 async function main(){
   const {fresh}=await import('../dist/model.js');
   {
+    const b=boot();b.click('start');b.click('go');let guard=0;
+    while(b.h.session.phase!=='done'){
+      assert.ok(++guard<180);assert.equal(b.d.querySelector('#go'),null);assert.equal(b.d.querySelector('#next'),null);assert.equal(b.d.querySelector('#rep'),null);b.advance(61000);
+    }
+    assert.equal(b.h.session.index,2);assert.equal(b.h.running,false);assert.equal(b.d.querySelector('#next').textContent,'Starta nästa övning');
+    b.click('next');assert.equal(b.h.session.steps[b.h.session.index].ei,1);assert.equal(b.h.session.phase,'transition');assert.equal(b.h.running,true);assert.equal(b.d.querySelector('#go'),null);
+    guard=0;while(b.h.session.phase!=='done'){assert.ok(++guard<10);assert.equal(b.d.querySelector('#next'),null);assert.equal(b.d.querySelector('#go'),null);b.advance(61000)}
+    assert.equal(b.h.session.steps[b.h.session.index].side,'Höger');assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('6 av 8'));b.close();
+    console.log('PASS: all sets and side changes run without clicks, and one next-exercise click both changes and starts');
+  }
+  {
+    const state=fresh();state.settings.rounds=2;state.settings.rest=15;
+    const b=boot({history:JSON.stringify(state)});b.d.querySelector('[data-start-exercise="1"]').click();b.click('go');let guard=0;const positions=new Set();let paused=false;
+    while(b.h.session.phase!=='done'){
+      assert.ok(++guard<30);positions.add(b.h.session.index);assert.equal(b.d.querySelector('#go'),null);assert.equal(b.d.querySelector('#next'),null);
+      if(b.h.session.phase==='rest'&&!paused){
+        paused=true;b.advance(5000);b.click('pause');const raw=b.draft(),time=b.h.passTime();b.advance(60000);assert.equal(b.h.passTime(),time);assert.equal(b.h.session.phase,'rest');
+        const restored=boot({history:b.w.localStorage.getItem('rehab-johan-v1'),draft:raw});restored.click('resume-saved');restored.click('resume-pass');restored.advance(10000);
+        assert.equal(restored.h.session.phase,'transition');assert.equal(restored.d.querySelector('#go'),null);restored.close();b.click('resume-pass');
+      }
+      b.advance(61000);
+    }
+    assert.deepEqual([...positions],[0,1,2,3]);assert.equal(paused,true);assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('7 av 8'));b.close();
+    console.log('PASS: two rounds on both sides and set rest run automatically; pause and draft recovery never bypass the remaining rest');
+  }
+  {
+    const state=fresh();state.settings.squatSeconds=0;const b=boot({history:JSON.stringify(state)});
+    b.d.querySelector('[data-start-exercise="7"]').click();b.click('go');assert.equal(b.h.session.settings.squatSeconds,10);assert.equal(b.h.session.nextPhase,'squat');
+    let guard=0;while(b.h.session.phase!=='done'){assert.ok(++guard<100);assert.equal(b.d.querySelector('#rep'),null);assert.equal(b.d.querySelector('#go'),null);assert.equal(b.d.querySelector('#next'),null);b.advance(61000)}
+    assert.equal(b.h.session.index,2);assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('7 av 8'));b.close();
+    console.log('PASS: new squats always use timing and complete all three sets without repetition or set buttons');
+  }
+  {
     const b=boot();b.click('start');b.click('go');b.advance(1000);assert.equal(b.h.running,true);
-    b.click('skip-exercise');assert.equal(b.h.running,false);assert.equal(b.h.session.steps[b.h.session.index].ei,1);assert.equal(b.h.session.phase,'ready');
-    assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));b.advance(60000);assert.equal(b.h.session.phase,'ready');
+    b.click('skip-exercise');assert.equal(b.h.running,true);assert.equal(b.h.session.steps[b.h.session.index].ei,1);assert.equal(b.h.session.phase,'transition');
+    assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));b.advance(1000);assert.equal(b.h.session.phase,'hold');
     const raw=b.draft();assert.deepEqual(JSON.parse(raw).session.skippedExerciseIds,[0]);
     const restored=boot({draft:raw,history:b.w.localStorage.getItem('rehab-johan-v1')});restored.click('resume-saved');
     assert.ok(restored.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));finish(restored);
@@ -62,10 +95,10 @@ async function main(){
     console.log('PASS: skipping a single exercise bypasses both sides and returns to the daily list');
   }
   {
-    const b=boot();b.click('start');let guard=0;while(b.h.session.phase!=='done'){
+    const b=boot();b.click('start');let guard=0;while(b.h.session.phase!=='rest'){
       assert.ok(++guard<100);if(b.h.session.phase==='ready')b.click('go');else b.advance(61000);
     }
-    assert.equal(b.h.session.index,0);b.click('skip-exercise');assert.equal(b.h.session.steps[b.h.session.index].ei,1);
+    assert.equal(b.h.session.index,1);b.click('skip-exercise');assert.equal(b.h.session.steps[b.h.session.index].ei,1);
     assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));b.close();
     const last=boot();last.click('start');guard=0;
     while(last.h.session.steps[last.h.session.index].ei!==7){
@@ -107,8 +140,8 @@ async function main(){
   }
   {
     const b=boot();b.d.querySelector('[data-start-exercise="1"]').click();b.click('go');b.advance(1000);b.advance(45000);
-    assert.equal(b.h.session.phase,'done');assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));
-    b.click('next');b.click('go');b.advance(1000);b.advance(12000);b.hidden(true);
+    assert.equal(b.h.session.phase,'transition');assert.ok(b.d.querySelector('[data-daily-count]').textContent.startsWith('8 av 8'));
+    b.advance(1000);b.advance(12000);b.hidden(true);
     const draft=b.draft(),stored=b.w.localStorage.getItem('rehab-johan-v1'),saved=JSON.parse(draft);
     assert.deepEqual(saved.session.exerciseIds,[1]);assert.equal(saved.remaining,33000);
     const restored=boot({history:stored,draft});assert.ok(restored.d.querySelector('[data-start-exercise="2"]').disabled);
@@ -137,8 +170,8 @@ async function main(){
     const restored=boot({history:JSON.stringify(setup),draft:raw});restored.click('resume-saved');restored.click('resume-pass');
     restored.advance(6499);assert.equal(restored.h.session.rep,2);restored.advance(1);assert.equal(restored.h.session.rep,3);
     for(let rep=3;rep<=10;rep++){restored.advance(1000);restored.advance(10000)}
-    assert.equal(restored.h.session.phase,'done');assert.equal(restored.h.session.rep,10);assert.equal(restored.h.session.index,0);
-    restored.click('next');assert.equal(restored.h.session.phase,'rest');assert.equal(restored.h.session.settings.rest,30);
+    assert.equal(restored.h.session.phase,'rest');assert.equal(restored.h.session.rep,1);assert.equal(restored.h.session.index,1);
+    assert.equal(restored.d.querySelector('#next'),null);assert.equal(restored.h.session.settings.rest,30);
     restored.close();b.close();
     const c=boot();c.h.render('settings');assert.equal(c.d.querySelector('[name=squatSeconds]').value,'10');
     c.d.querySelector('[name=squatSeconds]').value='15';c.d.querySelector('#settings-form').dispatchEvent(new c.w.Event('submit',{cancelable:true}));assert.equal(c.h.state.settings.squatSeconds,15);c.close();
@@ -150,7 +183,7 @@ async function main(){
     const b=boot({history:JSON.stringify(state),draft:JSON.stringify(raw),AudioContext:fixture.AudioContext});
     b.click('resume-saved');await b.d.querySelector('#resume-pass').onclick();const audio=fixture.contexts[0];assert.equal(audio.nodes.length,1);assert.equal(audio.nodes[0].hz,340);
     for(let i=0;i<29;i++){b.advance(1000);assert.equal(audio.nodes.at(-1).hz,340)}
-    assert.equal(audio.nodes.length,30);b.advance(1000);assert.equal(b.h.session.phase,'ready');assert.equal(audio.nodes.length,32);b.close();
+    assert.equal(audio.nodes.length,30);b.advance(1000);assert.equal(b.h.session.phase,'transition');assert.equal(audio.nodes.length,32);b.close();
     console.log('PASS: set rest sounds once per second with its own tone, then gives the distinct end signal');
   }
   {
@@ -302,13 +335,13 @@ async function main(){
     const fixture=soundFixture(),b=boot({history:JSON.stringify(data),AudioContext:fixture.AudioContext});
     b.click('start');await b.d.querySelector('#go').onclick();const audio=fixture.contexts[0];
     for(let i=0;i<10;i++){b.advance(1000);b.advance(1000);b.advance(1000);b.advance(3000)}
-    assert.equal(b.h.session.phase,'done');b.click('next');assert.equal(b.h.session.phase,'rest');
-    const count=audio.nodes.length;b.advance(30000);assert.equal(b.h.session.phase,'ready');assert.equal(audio.nodes.length,count+2);
+    assert.equal(b.h.session.phase,'rest');
+    const count=audio.nodes.length;b.advance(30000);assert.equal(b.h.session.phase,'transition');assert.equal(audio.nodes.length,count+2);
     while(b.h.session.steps[b.h.session.index].kind!=='stretch'){
       if(b.h.session.phase==='ready')b.click('go');else if(b.h.session.phase==='done')b.click('next');else b.advance(61000);
     }
-    b.click('go');b.advance(1000);const stretchCount=audio.nodes.length;for(let i=0;i<44;i++)b.advance(1000);assert.equal(audio.nodes.length,stretchCount+44);assert.equal(audio.nodes.at(-1).hz,640);
-    b.advance(1000);assert.equal(b.h.session.phase,'done');assert.equal(audio.nodes.length,stretchCount+46);b.close();
+    b.advance(1000);const stretchCount=audio.nodes.length;for(let i=0;i<44;i++)b.advance(1000);assert.equal(audio.nodes.length,stretchCount+44);assert.equal(audio.nodes.at(-1).hz,640);
+    b.advance(1000);assert.equal(b.h.session.phase,'transition');assert.equal(b.h.session.steps[b.h.session.index].side,'Höger');assert.equal(audio.nodes.length,stretchCount+46);b.close();
     console.log('PASS: rest end and stretch completion signal exactly once, with a hold cue each second');
   }
   {
@@ -372,8 +405,9 @@ async function main(){
     console.log('PASS: import previews, merges, requires opt-in for settings and rejects bad files');
   }
   {
-    const manual=fresh();manual.settings.squatSeconds=0;const b=boot({history:JSON.stringify(manual)});b.click('start');let guards=0;while(b.h.session.steps[b.h.session.index].kind!=='squat'){assert.ok(++guards<1000);if(b.h.session.phase==='ready')b.click('go');else if(b.h.session.phase==='done')b.click('next');else b.advance(61000)}
-    b.click('go');b.advance(1000);b.click('rep');b.advance(1000);b.click('rep');b.advance(5000);const raw=b.draft();
+    const manual=fresh();manual.settings.squatSeconds=0;
+    const draft={version:1,session:{settings:manual.settings,index:13,rep:1,phase:'ready',started:new Date().toISOString()},remaining:0,duration:0,elapsedMs:0};
+    const b=boot({draft:JSON.stringify(draft)});b.click('resume-saved');b.click('resume-pass');b.advance(1000);b.click('rep');b.advance(1000);b.click('rep');b.advance(5000);const raw=b.draft();
     const restored=boot({draft:raw});restored.click('resume-saved');assert.equal(restored.h.session.phase,'manual');assert.equal(restored.h.session.rep,3);const time=restored.h.passTime();restored.advance(20000);assert.equal(restored.h.passTime(),time);restored.click('resume-pass');restored.click('rep');assert.equal(restored.h.session.rep,4);restored.close();b.close();
     console.log('PASS: manual squat repetition resumes without adding time away');
   }
